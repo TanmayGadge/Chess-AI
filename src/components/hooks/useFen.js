@@ -1,4 +1,4 @@
-export default function parseFEN(fen) {
+export default function useFEN(fen) {
   const rows = fen.split("/");
   
   const board = [];
@@ -19,5 +19,3 @@ export default function parseFEN(fen) {
   }
   return board;
 }
-
-console.log(parseFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"));

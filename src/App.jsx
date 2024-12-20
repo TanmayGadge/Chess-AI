@@ -5,7 +5,8 @@ function App() {
   let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   return (
     <div className="app">
-      <ChessBoard />
+      {/* <ChessBoard fen={startingFEN}/> */}
+      <ChessBoard fen={startingFEN}/>
     </div>
   );
 }
