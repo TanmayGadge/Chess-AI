@@ -2,10 +2,9 @@ import "./App.css";
 import ChessBoard from "./components/board/chessBoard";
 
 function App() {
-  let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+  let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR/";
   return (
-    <div className="app">
-      {/* <ChessBoard fen={startingFEN}/> */}
+    <div className="bg-[#242424]">
       <ChessBoard fen={startingFEN}/>
     </div>
   );

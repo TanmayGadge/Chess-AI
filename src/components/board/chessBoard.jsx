@@ -1,7 +1,6 @@
 import React from "react";
 import useFEN from "../hooks/useFen";
 import Tile from "../Tile/Tile";
-import "./chessboard.css";
 
 const ChessBoard = ({ fen }) => {
   const board = useFEN(fen);
@@ -65,7 +64,11 @@ const ChessBoard = ({ fen }) => {
     });
   });
 
-  return <div id="chessboard">{chessBoard}</div>;
+  return (
+    <div className="mx-auto bg-[#779556] w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] text-[black]">
+      {chessBoard}
+    </div>
+  );
 };
 
 export default ChessBoard;
