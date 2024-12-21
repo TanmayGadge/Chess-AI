@@ -1,4 +1,3 @@
-import "./App.css";
 import ChessBoard from "./components/board/chessBoard";
 
 function App() {
