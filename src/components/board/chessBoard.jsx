@@ -1,46 +1,54 @@
-import React from "react";
+import React, { useRef } from "react";
 import useFEN from "../../hooks/useFen";
 import Tile from "../tile/tile";
 
-let activePiece = null;
-
-function grabPiece(e) {
-  const element = e.target;
-
-  if (element.classList.contains("bg-no-repeat")) {
-    element.classList.add("grabbed-piece");
-
-    const x = e.clientX - 35;
-    const y = e.clientY - 35;
-
-    element.style.position = "absolute";
-    element.style.left = `${x}px`;
-    element.style.top = `${y}px`;
-  }
-  activePiece = element;
-}
-
-function movePiece(e) {
-
-  if (activePiece) {
-    const x = e.clientX - 35;
-    const y = e.clientY - 35;
-
-    activePiece.style.position = "absolute";
-    activePiece.style.left = `${x}px`;
-    activePiece.style.top = `${y}px`;
-  }
-}
-
-function dropPiece(e){
-
-  if(activePiece){
-    activePiece = null;
-  }
-
-}
-
 const ChessBoard = ({ fen }) => {
+  let activePiece = null;
+
+  const chessBoardRef = useRef(null);
+
+  function grabPiece(e) {
+    const element = e.target;
+
+    if (element.classList.contains("bg-no-repeat")) {
+      element.classList.add("grabbed-piece");
+
+      const x = e.clientX - 35;
+      const y = e.clientY - 35;
+
+      element.style.position = "absolute";
+      element.style.left = `${x}px`;
+      element.style.top = `${y}px`;
+    }
+    activePiece = element;
+  }
+
+  function movePiece(e) {
+
+    const chessboard = chessBoardRef.current;
+    
+    if (activePiece &&chessboard) {
+      const minX = chessboard.offsetLeft;
+      const maxX = chessboard.offsetLeft + chessboard.offsetWidth - 70;
+
+      const minY = chessboard.offsetTop;
+      const maxY = chessboard.offsetTop + chessboard.offsetHeight -70 ;
+      
+
+      const x = e.clientX - 35;
+      const y = e.clientY - 35;
+
+      activePiece.style.position = "absolute";
+      activePiece.style.left = (x > minX && x < maxX) && `${x}px`;
+      activePiece.style.top = (y > minY && y < maxY) && `${y}px`;
+    }
+  }
+
+  function dropPiece(e) {
+    if (activePiece) {
+      activePiece = null;
+    }
+  }
   const board = useFEN(fen);
 
   let chessBoard = [];
@@ -104,7 +112,8 @@ const ChessBoard = ({ fen }) => {
 
   return (
     <div
-      className="mx-auto bg-[#779556] w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] `"
+      className="mx-auto w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] p-4"
+      ref={chessBoardRef}
       onMouseDown={(e) => {
         grabPiece(e);
       }}
