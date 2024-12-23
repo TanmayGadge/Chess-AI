@@ -104,7 +104,7 @@ const ChessBoard = ({ fen }) => {
 
   return (
     <div
-      className="mx-auto bg-[#779556] w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] text-[black]"
+      className="mx-auto bg-[#779556] w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] `"
       onMouseDown={(e) => {
         grabPiece(e);
       }}
