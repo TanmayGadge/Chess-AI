@@ -2,6 +2,10 @@
 
 I am trying to build an AI chess engine from scratch.
 
+Initially planning on implementing the minimax algorithm with alpha-beta pruning.
+
+As I enhance my skills in AI I plan on implementing neural networks.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
