@@ -8,6 +8,7 @@ const ChessBoard = ({ fen }) => {
 
   const chessBoardRef = useRef(null);
   const [boardState, setBoardState] = useState(() => useFEN(fen));
+  const [isWhiteTurn, setIsWhiteTurn] = useState(true);
 
   const getSquareFromCoords = (x, y) => {
     const chessboard = chessBoardRef.current;
@@ -120,33 +121,25 @@ const ChessBoard = ({ fen }) => {
 
     const targetPiece = boardState[to.row][to.col];
 
-    // console.log('Pawn move validation:', {
-    //   from, to, isWhite, direction, rowDiff, colDiff, targetPiece, movingPiece
-    // });
-
     // Forward movement (no capture)
     if (colDiff === 0 && !targetPiece) {
       // One square forward
       if (rowDiff === direction) {
-        // console.log('Valid: One square forward');
         return true;
       }
 
       // Two squares forward from starting position
       const startingRow = isWhite ? 6 : 1;
       if (from.row === startingRow && rowDiff === 2 * direction) {
-        // console.log('Valid: Two squares forward from start');
         return true;
       }
     }
 
     // Diagonal capture
     if (colDiff === 1 && rowDiff === direction && targetPiece) {
-      // console.log('Valid: Diagonal capture');
       return true;
     }
 
-    // console.log('Invalid pawn move');
     return false;
   }
 
@@ -213,28 +206,6 @@ const ChessBoard = ({ fen }) => {
     }
   }
 
-  function grabPiece(e) {
-    const element = e.target;
-
-    if (element.classList.contains("chess-piece")) {
-      element.classList.add("grabbed-piece");
-
-      // Store original position
-      originalPosition = getPiecePosition(element);
-      // console.log('Grabbed piece at position:', originalPosition);
-      // console.log('Piece at board position:', boardState[originalPosition.row]?.[originalPosition.col]);
-
-      const x = e.clientX - 35;
-      const y = e.clientY - 35;
-
-      element.style.position = "fixed"; // Use fixed instead of absolute
-      element.style.left = `${x}px`;
-      element.style.top = `${y}px`;
-      element.style.zIndex = "1000";
-
-      activePiece = element;
-    }
-  }
   const getTileSize = () => {
     if (chessBoardRef.current) {
       return chessBoardRef.current.offsetWidth / 8;
@@ -254,6 +225,38 @@ const ChessBoard = ({ fen }) => {
 
     return { x: x + rect.left, y: y + rect.top };
   };
+  function grabPiece(e) {
+    const element = e.target;
+
+    if (element.classList.contains("chess-piece")) {
+      element.classList.add("grabbed-piece");
+
+
+      const piecePosition = getPiecePosition(element);
+      const piece = boardState[piecePosition.row][piecePosition.col];
+
+      const isPieceWhite = piece === piece.toUpperCase();
+
+      if (
+        (isPieceWhite && !isWhiteTurn) ||
+        (!isPieceWhite && isWhiteTurn)
+      ) {
+        return;
+      }
+      
+      originalPosition = getPiecePosition(element);
+
+      const x = e.clientX - 35;
+      const y = e.clientY - 35;
+
+      element.style.position = "fixed"; // Use fixed instead of absolute
+      element.style.left = `${x}px`;
+      element.style.top = `${y}px`;
+      element.style.zIndex = "1000";
+      activePiece = element;
+
+    }
+  }
 
   function movePiece(e) {
     if (activePiece) {
@@ -280,6 +283,7 @@ const ChessBoard = ({ fen }) => {
 
         // Update board state
         updateBoardState(originalPosition, targetSquare);
+        setIsWhiteTurn(!isWhiteTurn);
 
         // Update piece data attributes
         activePiece.dataset.row = targetSquare.row;
@@ -299,20 +303,6 @@ const ChessBoard = ({ fen }) => {
       originalPosition = { row: -1, col: -1 };
     }
   }
-
-  // Helper function to check if path is clear (no pieces blocking)
-
-  // Rook: Moves horizontally or vertically any number of squares
-
-  // Bishop: Moves diagonally any number of squares
-
-  // Queen: Combines rook and bishop moves
-
-  // King: Moves one square in any direction
-
-  // Knight: Moves in L-shape (2+1 or 1+2 squares)
-
-  // Chess piece movement validation
 
   let chessBoard = [];
   let key = 0;
