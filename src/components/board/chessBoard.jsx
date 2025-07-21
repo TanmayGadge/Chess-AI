@@ -1,14 +1,35 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import useFEN from "../../hooks/useFEN";
 import Tile from "../tile/tile";
+import dropSound from '../../sound-effect/drop.mp3';
+import captureSound from '../../sound-effect/capture.mp3';
 
-const ChessBoard = ({ fen }) => {
+import useSound from "use-sound";
+
+const ChessBoard = ({ fen, onDataSend }) => {
   let activePiece = null;
   let originalPosition = { row: -1, col: -1 };
 
   const chessBoardRef = useRef(null);
   const [boardState, setBoardState] = useState(() => useFEN(fen));
   const [isWhiteTurn, setIsWhiteTurn] = useState(true);
+
+  const sendDataToParent = ()=>{
+    onDataSend(isWhiteTurn)
+  }
+  
+  useEffect(()=>{
+    sendDataToParent();
+  }, [isWhiteTurn])
+
+  //Capturing Pieces
+  const [capturedPieces, setCapturedPieces] = useState({
+    white: [],
+    black: [],
+  });
+
+  const [playDrop] = useSound(dropSound);
+  const [playCapture] = useSound(captureSound);
 
   const getSquareFromCoords = (x, y) => {
     const chessboard = chessBoardRef.current;
@@ -68,6 +89,86 @@ const ChessBoard = ({ fen }) => {
     }
 
     return true;
+  }
+  function isValidMove(from, to) {
+    // Don't allow moving to the same square
+    if (from.row === to.row && from.col === to.col) {
+      return false;
+    }
+
+    // Check bounds
+    if (
+      from.row < 0 ||
+      from.row > 7 ||
+      from.col < 0 ||
+      from.col > 7 ||
+      to.row < 0 ||
+      to.row > 7 ||
+      to.col < 0 ||
+      to.col > 7
+    ) {
+      return false;
+    }
+
+    // Check if there's a piece at the source position
+    const movingPiece = boardState[from.row][from.col];
+    if (!movingPiece) {
+      return false;
+    }
+
+    // Check if target square is empty or contains opponent piece
+    const targetPiece = boardState[to.row][to.col];
+
+    if (targetPiece) {
+      // Check if it's an opponent piece (different case = different color)
+      const movingPieceColor =
+        movingPiece === movingPiece.toLowerCase() ? "black" : "white";
+      const targetPieceColor =
+        targetPiece === targetPiece.toLowerCase() ? "black" : "white";
+
+      if (movingPieceColor === targetPieceColor) {
+        return false; // Can't capture own piece
+      } else {
+        
+        playCapture();
+
+        if (targetPieceColor === "black") {
+          setCapturedPieces((prev) => {
+            return {
+              ...prev,
+              black: [...prev.black, targetPiece],
+            };
+          });
+        } else {
+          setCapturedPieces((prev) => {
+            return {
+              ...prev,
+              white: [...prev.white, targetPiece],
+            };
+          });
+        }
+      }
+    }
+
+    // console.log('Validating move:', { from, to, movingPiece, targetPiece });
+
+    // Check if it's a valid move for the piece type
+    switch (movingPiece.toLowerCase()) {
+      case "r":
+        return isValidRookMove(from, to);
+      case "n":
+        return isValidKnightMove(from, to);
+      case "b":
+        return isValidBishopMove(from, to);
+      case "q":
+        return isValidQueenMove(from, to);
+      case "k":
+        return isValidKingMove(from, to);
+      case "p":
+        return isValidPawnMove(from, to, movingPiece);
+      default:
+        return false;
+    }
   }
 
   function isValidRookMove(from, to) {
@@ -143,69 +244,6 @@ const ChessBoard = ({ fen }) => {
     return false;
   }
 
-  function isValidMove(from, to) {
-    // Don't allow moving to the same square
-    if (from.row === to.row && from.col === to.col) {
-      return false;
-    }
-
-    // Check bounds
-    if (
-      from.row < 0 ||
-      from.row > 7 ||
-      from.col < 0 ||
-      from.col > 7 ||
-      to.row < 0 ||
-      to.row > 7 ||
-      to.col < 0 ||
-      to.col > 7
-    ) {
-      return false;
-    }
-
-    // Check if there's a piece at the source position
-    const movingPiece = boardState[from.row][from.col];
-    if (!movingPiece) {
-      // console.log('No piece at source position:', from);
-      return false;
-    }
-
-    // Check if target square is empty or contains opponent piece
-    const targetPiece = boardState[to.row][to.col];
-
-    if (targetPiece) {
-      // Check if it's an opponent piece (different case = different color)
-      const movingPieceColor =
-        movingPiece === movingPiece.toLowerCase() ? "black" : "white";
-      const targetPieceColor =
-        targetPiece === targetPiece.toLowerCase() ? "black" : "white";
-
-      if (movingPieceColor === targetPieceColor) {
-        return false; // Can't capture own piece
-      }
-    }
-
-    // console.log('Validating move:', { from, to, movingPiece, targetPiece });
-
-    // Check if it's a valid move for the piece type
-    switch (movingPiece.toLowerCase()) {
-      case "r":
-        return isValidRookMove(from, to);
-      case "n":
-        return isValidKnightMove(from, to);
-      case "b":
-        return isValidBishopMove(from, to);
-      case "q":
-        return isValidQueenMove(from, to);
-      case "k":
-        return isValidKingMove(from, to);
-      case "p":
-        return isValidPawnMove(from, to, movingPiece);
-      default:
-        return false;
-    }
-  }
-
   const getTileSize = () => {
     if (chessBoardRef.current) {
       return chessBoardRef.current.offsetWidth / 8;
@@ -231,19 +269,15 @@ const ChessBoard = ({ fen }) => {
     if (element.classList.contains("chess-piece")) {
       element.classList.add("grabbed-piece");
 
-
       const piecePosition = getPiecePosition(element);
       const piece = boardState[piecePosition.row][piecePosition.col];
 
       const isPieceWhite = piece === piece.toUpperCase();
 
-      if (
-        (isPieceWhite && !isWhiteTurn) ||
-        (!isPieceWhite && isWhiteTurn)
-      ) {
+      if ((isPieceWhite && !isWhiteTurn) || (!isPieceWhite && isWhiteTurn)) {
         return;
       }
-      
+
       originalPosition = getPiecePosition(element);
 
       const x = e.clientX - 35;
@@ -254,7 +288,6 @@ const ChessBoard = ({ fen }) => {
       element.style.top = `${y}px`;
       element.style.zIndex = "1000";
       activePiece = element;
-
     }
   }
 
@@ -284,6 +317,7 @@ const ChessBoard = ({ fen }) => {
         // Update board state
         updateBoardState(originalPosition, targetSquare);
         setIsWhiteTurn(!isWhiteTurn);
+        playDrop()
 
         // Update piece data attributes
         activePiece.dataset.row = targetSquare.row;
