@@ -1,23 +1,31 @@
 import ChessBoard from "./components/board/chessBoard";
 import React from "react";
+import LogButton from "./components/Button/LogButton";
+import UndoButton from "./components/Button/UndoButton";
+
+import { BoardProvider } from "./context/BoardContext";
 
 function App() {
-  let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR/";
+  
 
-  const [isWhiteTurn, setIsWhiteTurn] = React.useState(true);
+  const [boardState, SetBoardState] = React.useState([]);
 
-  function handleDataFromChild(data){
-    setIsWhiteTurn(data);
+  function handleDataFromChild(data) {
+    SetBoardState(data);
+  }
+
+  function displayBoardState(boardState) {
+    console.dir(boardState);
   }
 
   return (
-    <div className="bg-[#242424]">
-      {/* <div className="flex justify-center">
-        <div className={`fixed top-0 left- bg-gradient-to-b from-[#242424] ${!isWhiteTurn ? "to-green-600": "to-red-700"} w-[100vh] h-3`} /> */}
-        <ChessBoard fen={startingFEN} onDataSend={handleDataFromChild}/>
-        {/* <div className={`fixed bottom-0 bg-gradient-to-t from-[#242424] ${isWhiteTurn ? "to-green-600": "to-red-700"} w-[100vh] h-3`} />
-      </div> */}
-    </div>
+    <BoardProvider>
+      <div className="bg-[#242424]">
+        <ChessBoard  onDataSend={handleDataFromChild} />
+        <LogButton/>
+        <UndoButton/>
+      </div>
+    </BoardProvider>
   );
 }
 

@@ -6,27 +6,33 @@ import captureSound from '../../sound-effect/capture.mp3';
 
 import useSound from "use-sound";
 
+import { useBoard } from "../../context/BoardContext";
+
+
 const ChessBoard = ({ fen, onDataSend }) => {
   let activePiece = null;
   let originalPosition = { row: -1, col: -1 };
 
   const chessBoardRef = useRef(null);
-  const [boardState, setBoardState] = useState(() => useFEN(fen));
+
+  const {boardState, setBoardState, prevBoardState, setPrevBoardState} = useBoard();
+
   const [isWhiteTurn, setIsWhiteTurn] = useState(true);
 
   const sendDataToParent = ()=>{
-    onDataSend(isWhiteTurn)
+    onDataSend(boardState)
   }
+
+  useEffect(()=>{
+    console.dir(prevBoardState)
+  }, [prevBoardState])
   
   useEffect(()=>{
     sendDataToParent();
-  }, [isWhiteTurn])
+  }, [boardState])
 
   //Capturing Pieces
-  const [capturedPieces, setCapturedPieces] = useState({
-    white: [],
-    black: [],
-  });
+  const [capturedPieces, setCapturedPieces] = useState([]);
 
   const [playDrop] = useSound(dropSound);
   const [playCapture] = useSound(captureSound);
@@ -59,6 +65,9 @@ const ChessBoard = ({ fen, onDataSend }) => {
   };
 
   function updateBoardState(from, to) {
+
+    setPrevBoardState(boardState);
+
     setBoardState((prevBoard) => {
       const newBoard = prevBoard.map((row) => [...row]);
       const piece = newBoard[from.row][from.col];
@@ -110,44 +119,47 @@ const ChessBoard = ({ fen, onDataSend }) => {
       return false;
     }
 
-    // Check if there's a piece at the source position
     const movingPiece = boardState[from.row][from.col];
     if (!movingPiece) {
       return false;
     }
-
-    // Check if target square is empty or contains opponent piece
+    
     const targetPiece = boardState[to.row][to.col];
+    
+    console.log(`Captured Pieces: ${capturedPieces} `);
 
     if (targetPiece) {
-      // Check if it's an opponent piece (different case = different color)
       const movingPieceColor =
         movingPiece === movingPiece.toLowerCase() ? "black" : "white";
       const targetPieceColor =
         targetPiece === targetPiece.toLowerCase() ? "black" : "white";
 
       if (movingPieceColor === targetPieceColor) {
-        return false; // Can't capture own piece
+        return false; 
       } else {
         
         playCapture();
 
-        if (targetPieceColor === "black") {
-          setCapturedPieces((prev) => {
-            return {
-              ...prev,
-              black: [...prev.black, targetPiece],
-            };
-          });
-        } else {
-          setCapturedPieces((prev) => {
-            return {
-              ...prev,
-              white: [...prev.white, targetPiece],
-            };
-          });
-        }
+        // if (targetPieceColor === "black") {
+        //   setCapturedPieces((prev) => {
+        //     return {
+        //       ...prev,
+        //       black: [...prev.black, targetPiece],
+        //     };
+        //   });
+        // } else {
+        //   setCapturedPieces((prev) => {
+        //     return {
+        //       ...prev,
+        //       white: [...prev.white, targetPiece],
+        //     };
+        //   });
+        // }
+        setCapturedPieces((prev)=>{
+          return [...prev, targetPiece]
+        });
       }
+
     }
 
     // console.log('Validating move:', { from, to, movingPiece, targetPiece });
@@ -336,6 +348,9 @@ const ChessBoard = ({ fen, onDataSend }) => {
       activePiece = null;
       originalPosition = { row: -1, col: -1 };
     }
+
+    // console.log(`Board State(chessBoard.jsx): ${typeof(boardState)}`);
+    // console.dir(boardState);
   }
 
   let chessBoard = [];
