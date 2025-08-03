@@ -9,7 +9,7 @@ import useSound from "use-sound";
 import { useBoard } from "../../context/BoardContext";
 
 
-const ChessBoard = ({ fen, onDataSend }) => {
+const ChessBoard = () => {
   let activePiece = null;
   let originalPosition = { row: -1, col: -1 };
 
@@ -17,19 +17,14 @@ const ChessBoard = ({ fen, onDataSend }) => {
 
   const {boardState, setBoardState, prevBoardState, setPrevBoardState} = useBoard();
 
-  const [isWhiteTurn, setIsWhiteTurn] = useState(true);
+  const {isWhiteTurn, setIsWhiteTurn} = useBoard();
 
-  const sendDataToParent = ()=>{
-    onDataSend(boardState)
-  }
+
 
   useEffect(()=>{
     console.dir(prevBoardState)
   }, [prevBoardState])
   
-  useEffect(()=>{
-    sendDataToParent();
-  }, [boardState])
 
   //Capturing Pieces
   const [capturedPieces, setCapturedPieces] = useState([]);

@@ -11,10 +11,18 @@ export const BoardProvider = ({ children }) => {
   let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   const [boardState, setBoardState] = useState(() => useFEN(startingFEN));
   const [prevBoardState, setPrevBoardState] = useState(null);
+  const [isWhiteTurn, setIsWhiteTurn] = useState(true);
 
   return (
     <BoardContext.Provider
-      value={{ boardState, setBoardState, prevBoardState, setPrevBoardState }}
+      value={{
+        boardState,
+        setBoardState,
+        prevBoardState,
+        setPrevBoardState,
+        isWhiteTurn,
+        setIsWhiteTurn,
+      }}
     >
       {children}
     </BoardContext.Provider>
