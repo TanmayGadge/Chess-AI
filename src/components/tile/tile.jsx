@@ -5,13 +5,19 @@ export default function Tile({
   i,
   j,
   image,
+  row,
+  col
 }) {
   return (
     <div className={`grid place-items-center ${number % 2 == 1 ? 'bg-[#ebecd0]' : 'bg-[#779556]'}`}>
-      {/* [{horizontalAxis[i]}
-      {verticalAxis[j]}] */}
-      {/* {image && <img src={image} alt="chess piece" className="w-3/4 h-3/4 hover:cursor-grab" />} */}
-      {image && <div className={"w-[70px] h-[70px] hover:cursor-grab active:cursor-grabbing bg-no-repeat bg-cover "} style={{backgroundImage: `url(${image})`}}></div>}
+      {image && (
+        <div 
+          className="chess-piece w-[70px] h-[70px] hover:cursor-grab active:cursor-grabbing bg-no-repeat bg-cover"
+          style={{backgroundImage: `url(${image})`}}
+          data-row={row}
+          data-col={col}
+        />
+      )}
     </div>
   );
 }

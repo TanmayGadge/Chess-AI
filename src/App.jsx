@@ -1,11 +1,20 @@
 import ChessBoard from "./components/board/chessBoard";
+import React from "react";
+import LogButton from "./components/Button/LogButton";
+import UndoButton from "./components/Button/UndoButton";
+
+import { BoardProvider } from "./context/BoardContext";
 
 function App() {
-  let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR/";
+  
   return (
-    <div className="bg-[#242424]">
-      <ChessBoard fen={startingFEN}/>
-    </div>
+    <BoardProvider>
+      <div className="bg-[#242424]">
+        <ChessBoard/>
+        <LogButton/>
+        <UndoButton/>
+      </div>
+    </BoardProvider>
   );
 }
 
