@@ -1,13 +1,12 @@
 import React, { useRef, useState, useEffect } from "react";
 import useFEN from "../../hooks/useFEN";
 import Tile from "../tile/tile";
-import dropSound from '../../sound-effect/drop.mp3';
-import captureSound from '../../sound-effect/capture.mp3';
+import dropSound from "../../sound-effect/drop.mp3";
+import captureSound from "../../sound-effect/capture.mp3";
 
 import useSound from "use-sound";
 
 import { useBoard } from "../../context/BoardContext";
-
 
 const ChessBoard = () => {
   let activePiece = null;
@@ -15,16 +14,18 @@ const ChessBoard = () => {
 
   const chessBoardRef = useRef(null);
 
-  const {boardState, setBoardState, prevBoardState, setPrevBoardState} = useBoard();
+  const { boardState, setBoardState, prevBoardState, setPrevBoardState } =
+    useBoard();
 
-  const {isWhiteTurn, setIsWhiteTurn} = useBoard();
+  const { isWhiteTurn, setIsWhiteTurn } = useBoard();
 
+  // useEffect(() => {
+  //   console.dir(prevBoardState);
+  // }, [prevBoardState]);
 
-
-  useEffect(()=>{
-    console.dir(prevBoardState)
-  }, [prevBoardState])
-  
+  useEffect(() => {
+    console.log(`White king in check: ${isKingInCheck("K")}`);
+  }, [boardState]);
 
   //Capturing Pieces
   const [capturedPieces, setCapturedPieces] = useState([]);
@@ -60,7 +61,6 @@ const ChessBoard = () => {
   };
 
   function updateBoardState(from, to) {
-
     setPrevBoardState(boardState);
 
     setBoardState((prevBoard) => {
@@ -94,6 +94,7 @@ const ChessBoard = () => {
 
     return true;
   }
+
   function isValidMove(from, to) {
     // Don't allow moving to the same square
     if (from.row === to.row && from.col === to.col) {
@@ -118,9 +119,9 @@ const ChessBoard = () => {
     if (!movingPiece) {
       return false;
     }
-    
+
     const targetPiece = boardState[to.row][to.col];
-    
+
     console.log(`Captured Pieces: ${capturedPieces} `);
 
     if (targetPiece) {
@@ -130,9 +131,8 @@ const ChessBoard = () => {
         targetPiece === targetPiece.toLowerCase() ? "black" : "white";
 
       if (movingPieceColor === targetPieceColor) {
-        return false; 
+        return false;
       } else {
-        
         playCapture();
 
         // if (targetPieceColor === "black") {
@@ -150,11 +150,10 @@ const ChessBoard = () => {
         //     };
         //   });
         // }
-        setCapturedPieces((prev)=>{
-          return [...prev, targetPiece]
+        setCapturedPieces((prev) => {
+          return [...prev, targetPiece];
         });
       }
-
     }
 
     // console.log('Validating move:', { from, to, movingPiece, targetPiece });
@@ -176,6 +175,87 @@ const ChessBoard = () => {
       default:
         return false;
     }
+  }
+
+  function isKingInCheck(king) {
+    //Search entire board for king's position
+    const kingPosition = { row: null, col: null };
+
+    for (let row = 0; row < boardState.length; row++) {
+      for (let col = 0; col < boardState[row].length; col++) {
+        const piece = boardState[row][col];
+        // console.log(piece);
+        if (piece) {
+          if (piece == king) {
+            kingPosition.row = row;
+            kingPosition.col = col;
+          }
+        } else continue;
+      }
+    }
+
+    for (let row = 0; row < boardState.length; row++) {
+      for (let col = 0; col < boardState[row].length; col++) {
+        const element = boardState[row][col];
+
+        if (element) {
+          const elementPosition = {
+            row: row,
+            col: col,
+          };
+
+          const upperCaseRegEx = /^[A-Z]$/;
+          const lowerCaseRegEx = /^[a-z]$/;
+
+          if (
+            (upperCaseRegEx.test(element) && lowerCaseRegEx.test(king)) ||
+            (lowerCaseRegEx.test(element) && upperCaseRegEx.test(king))
+          ) {
+            let canAttacking = false;
+
+            switch (element.toLowerCase()) {
+              case "r":
+                canAttacking = isValidRookMove(elementPosition, kingPosition);
+                break;
+              case "n":
+                canAttacking = isValidKnightMove(elementPosition, kingPosition);
+                break;
+              case "b":
+                canAttacking = isValidBishopMove(elementPosition, kingPosition);
+                break;
+              case "q":
+                canAttacking = isValidQueenMove(elementPosition, kingPosition);
+                break;
+              case "k":
+                canAttacking = isValidKingMove(elementPosition, kingPosition);
+                break;
+              case "p":
+                canAttacking = isValidPawnAttack(
+                  elementPosition,
+                  kingPosition,
+                  element
+                );
+                break;
+            }
+            if (canAttacking) {
+              return canAttacking;
+            }
+          }
+        } else continue;
+      }
+    }
+
+    return false;
+  }
+  function isValidPawnAttack(from, to, movingPiece) {
+    const isWhite = movingPiece === movingPiece.toUpperCase();
+    const direction = isWhite ? -1 : 1;
+
+    const rowDiff = to.row - from.row;
+    const colDiff = Math.abs(to.col - from.col);
+
+    // Pawn can only attack diagonally forward
+    return colDiff === 1 && rowDiff === direction;
   }
 
   function isValidRookMove(from, to) {
@@ -324,7 +404,7 @@ const ChessBoard = () => {
         // Update board state
         updateBoardState(originalPosition, targetSquare);
         setIsWhiteTurn(!isWhiteTurn);
-        playDrop()
+        playDrop();
 
         // Update piece data attributes
         activePiece.dataset.row = targetSquare.row;
