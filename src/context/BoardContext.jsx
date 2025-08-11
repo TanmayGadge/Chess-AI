@@ -11,7 +11,9 @@ export const BoardProvider = ({ children }) => {
   let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   const [boardState, setBoardState] = useState(() => useFEN(startingFEN));
   const [prevBoardState, setPrevBoardState] = useState(null);
-  const [isWhiteTurn, setIsWhiteTurn] = useState(true);
+  // const [isWhiteTurn, setIsWhiteTurn] = useState(true);
+  const [capturedPieces, setCapturedPieces] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState("white");
 
   return (
     <BoardContext.Provider
@@ -20,8 +22,12 @@ export const BoardProvider = ({ children }) => {
         setBoardState,
         prevBoardState,
         setPrevBoardState,
-        isWhiteTurn,
-        setIsWhiteTurn,
+        // isWhiteTurn,
+        // setIsWhiteTurn,
+        capturedPieces,
+        setCapturedPieces,
+        currentPlayer,
+        setCurrentPlayer,
       }}
     >
       {children}

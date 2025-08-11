@@ -3,14 +3,16 @@ import React from "react";
 import { useBoard } from "../../context/BoardContext";
 
 const UndoButton = () => {
-  const { setBoardState, prevBoardState, setIsWhiteTurn } = useBoard();
+  const { setBoardState, prevBoardState, setCurrentPlayer } = useBoard();
 
   return (
     <button
-      className="fixed bottom-10 left-10 p-2 rounded-lg bg-white"
+      className=" top-10 left-10 p-2 rounded-lg bg-white"
       onClick={() => {
-        setBoardState(prevBoardState)
-        setIsWhiteTurn(prev => !prev)
+        setBoardState(prevBoardState);
+        setCurrentPlayer((prevPlayer) => {
+          return prevPlayer == "white" ? "black" : "white";
+        });
       }}
     >
       Undo
