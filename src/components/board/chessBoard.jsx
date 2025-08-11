@@ -25,10 +25,10 @@ const ChessBoard = () => {
 
   useEffect(() => {
     console.log(`White king in check: ${isKingInCheck("K")}`);
-  }, [boardState]);
+  });
 
   //Capturing Pieces
-  const [capturedPieces, setCapturedPieces] = useState([]);
+  const { capturedPieces, setCapturedPieces } = useBoard();
 
   const [playDrop] = useSound(dropSound);
   const [playCapture] = useSound(captureSound);

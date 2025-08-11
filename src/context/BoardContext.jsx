@@ -12,6 +12,7 @@ export const BoardProvider = ({ children }) => {
   const [boardState, setBoardState] = useState(() => useFEN(startingFEN));
   const [prevBoardState, setPrevBoardState] = useState(null);
   const [isWhiteTurn, setIsWhiteTurn] = useState(true);
+  const [capturedPieces, setCapturedPieces] = useState([]);
 
   return (
     <BoardContext.Provider
@@ -22,6 +23,8 @@ export const BoardProvider = ({ children }) => {
         setPrevBoardState,
         isWhiteTurn,
         setIsWhiteTurn,
+        capturedPieces,
+        setCapturedPieces,
       }}
     >
       {children}

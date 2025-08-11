@@ -7,10 +7,10 @@ const UndoButton = () => {
 
   return (
     <button
-      className="fixed bottom-10 left-10 p-2 rounded-lg bg-white"
+      className=" top-10 left-10 p-2 rounded-lg bg-white"
       onClick={() => {
-        setBoardState(prevBoardState)
-        setIsWhiteTurn(prev => !prev)
+        setBoardState(prevBoardState);
+        setIsWhiteTurn((prev) => !prev);
       }}
     >
       Undo
