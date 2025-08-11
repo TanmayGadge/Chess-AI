@@ -14,21 +14,22 @@ const ChessBoard = () => {
 
   const chessBoardRef = useRef(null);
 
-  const { boardState, setBoardState, prevBoardState, setPrevBoardState } =
-    useBoard();
+  let {
+    boardState,
+    setBoardState,
+    prevBoardState,
+    setPrevBoardState,
+    capturedPieces,
+    setCapturedPieces,
+    currentPlayer,
+    setCurrentPlayer,
+  } = useBoard();
 
-  const { isWhiteTurn, setIsWhiteTurn } = useBoard();
+  console.log(`Current Player: ${currentPlayer}`);
 
   // useEffect(() => {
-  //   console.dir(prevBoardState);
-  // }, [prevBoardState]);
-
-  useEffect(() => {
-    console.log(`White king in check: ${isKingInCheck("K")}`);
-  });
-
-  //Capturing Pieces
-  const { capturedPieces, setCapturedPieces } = useBoard();
+  //   console.log(`White king in check: ${isKingInCheck("white", boardState)}`);
+  // });
 
   const [playDrop] = useSound(dropSound);
   const [playCapture] = useSound(captureSound);
@@ -54,7 +55,6 @@ const ChessBoard = () => {
   };
 
   const getPiecePosition = (element) => {
-    // You'll need to add data attributes to track position
     const row = parseInt(element.dataset.row);
     const col = parseInt(element.dataset.col);
     return { row, col };
@@ -72,7 +72,7 @@ const ChessBoard = () => {
     });
   }
 
-  function isPathClear(from, to) {
+  function isPathClear(from, to, board = boardState) {
     const rowDiff = to.row - from.row;
     const colDiff = to.col - from.col;
 
@@ -85,7 +85,7 @@ const ChessBoard = () => {
 
     // Check each square along the path (excluding destination)
     while (currentRow !== to.row || currentCol !== to.col) {
-      if (boardState[currentRow][currentCol] !== null) {
+      if (board[currentRow][currentCol] !== null) {
         return false; // Path is blocked
       }
       currentRow += rowStep;
@@ -122,7 +122,7 @@ const ChessBoard = () => {
 
     const targetPiece = boardState[to.row][to.col];
 
-    console.log(`Captured Pieces: ${capturedPieces} `);
+    // console.log(`Captured Pieces: ${capturedPieces} `);
 
     if (targetPiece) {
       const movingPieceColor =
@@ -177,13 +177,41 @@ const ChessBoard = () => {
     }
   }
 
-  function isKingInCheck(king) {
+  function isLegalMove(from, to) {
+    if (!isValidMove(from, to)) {
+      console.log("Invalid basic move");
+      return false;
+    }
+
+    let tempBoard = makeTempMove(from, to);
+    console.log("Temp board created");
+
+    const kingStillInCheck = isKingInCheck(currentPlayer, tempBoard);
+    console.log("King still in check after move:", kingStillInCheck);
+
+    if (kingStillInCheck) return false;
+
+    return true;
+  }
+
+  function makeTempMove(from, to) {
+    const tempBoard = boardState.map((row) => [...row]);
+
+    const piece = tempBoard[from.row][from.col];
+    tempBoard[from.row][from.col] = null;
+    tempBoard[to.row][to.col] = piece;
+
+    return tempBoard;
+  }
+
+  function isKingInCheck(currentPlayer, board) {
     //Search entire board for king's position
     const kingPosition = { row: null, col: null };
+    const king = currentPlayer === "white" ? "K" : "k";
 
-    for (let row = 0; row < boardState.length; row++) {
-      for (let col = 0; col < boardState[row].length; col++) {
-        const piece = boardState[row][col];
+    for (let row = 0; row < board.length; row++) {
+      for (let col = 0; col < board[row].length; col++) {
+        const piece = board[row][col];
         // console.log(piece);
         if (piece) {
           if (piece == king) {
@@ -194,9 +222,9 @@ const ChessBoard = () => {
       }
     }
 
-    for (let row = 0; row < boardState.length; row++) {
-      for (let col = 0; col < boardState[row].length; col++) {
-        const element = boardState[row][col];
+    for (let row = 0; row < board.length; row++) {
+      for (let col = 0; col < board[row].length; col++) {
+        const element = board[row][col];
 
         if (element) {
           const elementPosition = {
@@ -215,16 +243,28 @@ const ChessBoard = () => {
 
             switch (element.toLowerCase()) {
               case "r":
-                canAttacking = isValidRookMove(elementPosition, kingPosition);
+                canAttacking = isValidRookMove(
+                  elementPosition,
+                  kingPosition,
+                  board
+                );
                 break;
               case "n":
                 canAttacking = isValidKnightMove(elementPosition, kingPosition);
                 break;
               case "b":
-                canAttacking = isValidBishopMove(elementPosition, kingPosition);
+                canAttacking = isValidBishopMove(
+                  elementPosition,
+                  kingPosition,
+                  board
+                );
                 break;
               case "q":
-                canAttacking = isValidQueenMove(elementPosition, kingPosition);
+                canAttacking = isValidQueenMove(
+                  elementPosition,
+                  kingPosition,
+                  board
+                );
                 break;
               case "k":
                 canAttacking = isValidKingMove(elementPosition, kingPosition);
@@ -258,14 +298,14 @@ const ChessBoard = () => {
     return colDiff === 1 && rowDiff === direction;
   }
 
-  function isValidRookMove(from, to) {
+  function isValidRookMove(from, to, board = boardState) {
     // Must move either horizontally or vertically, not both
     if (from.row !== to.row && from.col !== to.col) {
       return false;
     }
 
     // Check if path is clear
-    return isPathClear(from, to);
+    return isPathClear(from, to, board);
   }
 
   function isValidKingMove(from, to) {
@@ -284,11 +324,13 @@ const ChessBoard = () => {
     return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
   }
 
-  function isValidQueenMove(from, to) {
-    return isValidRookMove(from, to) || isValidBishopMove(from, to);
+  function isValidQueenMove(from, to, board = boardState) {
+    return (
+      isValidRookMove(from, to, board) || isValidBishopMove(from, to, board)
+    );
   }
 
-  function isValidBishopMove(from, to) {
+  function isValidBishopMove(from, to, board = boardState) {
     const rowDiff = Math.abs(to.row - from.row);
     const colDiff = Math.abs(to.col - from.col);
 
@@ -298,16 +340,16 @@ const ChessBoard = () => {
     }
 
     // Check if path is clear
-    return isPathClear(from, to);
+    return isPathClear(from, to, board);
   }
-  function isValidPawnMove(from, to, movingPiece) {
+  function isValidPawnMove(from, to, movingPiece, board = boardState) {
     const isWhite = movingPiece === movingPiece.toUpperCase();
     const direction = isWhite ? -1 : 1; // White moves up (decreasing row), black moves down (increasing row)
 
     const rowDiff = to.row - from.row;
     const colDiff = Math.abs(to.col - from.col);
 
-    const targetPiece = boardState[to.row][to.col];
+    const targetPiece = board[to.row][to.col];
 
     // Forward movement (no capture)
     if (colDiff === 0 && !targetPiece) {
@@ -361,7 +403,10 @@ const ChessBoard = () => {
 
       const isPieceWhite = piece === piece.toUpperCase();
 
-      if ((isPieceWhite && !isWhiteTurn) || (!isPieceWhite && isWhiteTurn)) {
+      if (
+        (isPieceWhite && currentPlayer === "black") ||
+        (!isPieceWhite && currentPlayer === "white")
+      ) {
         return;
       }
 
@@ -393,7 +438,7 @@ const ChessBoard = () => {
     if (activePiece) {
       const targetSquare = getSquareFromCoords(e.clientX, e.clientY);
 
-      if (targetSquare && isValidMove(originalPosition, targetSquare)) {
+      if (targetSquare && isLegalMove(originalPosition, targetSquare)) {
         // Valid move - snap to center of target square
         const pixelPos = getPixelPosition(targetSquare.row, targetSquare.col);
 
@@ -403,7 +448,10 @@ const ChessBoard = () => {
 
         // Update board state
         updateBoardState(originalPosition, targetSquare);
-        setIsWhiteTurn(!isWhiteTurn);
+        // setIsWhiteTurn(!isWhiteTurn);
+        setCurrentPlayer((prevPlayer) => {
+          return prevPlayer == "white" ? "black" : "white";
+        });
         playDrop();
 
         // Update piece data attributes
