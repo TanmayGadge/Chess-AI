@@ -14,7 +14,7 @@ const ChessBoard = () => {
 
   const chessBoardRef = useRef(null);
 
-  let {
+  const {
     boardState,
     setBoardState,
     prevBoardState,
@@ -392,6 +392,131 @@ const ChessBoard = () => {
 
     return { x: x + rect.left, y: y + rect.top };
   };
+
+  function getAllPieces(color, board) {
+    const pieces = [];
+    const isWhite = color === "white";
+
+    for (let row = 0; row < board.length; row++) {
+      for (let col = 0; col < board[row].length; col++) {
+        const piece = board[row][col];
+        if (piece) {
+          const pieceIsWhite = piece === piece.toUpperCase();
+          if (pieceIsWhite === isWhite) {
+            pieces.push({
+              piece,
+              position: { row, col },
+            });
+          }
+        }
+      }
+    }
+    return pieces;
+  }
+
+  function getPossibleMoves(pieceData, board) {
+    const { piece, position } = pieceData;
+    const moves = [];
+
+    // Check all squares on the board
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const targetSquare = { row, col };
+
+        // Skip if it's the same square
+        if (position.row === row && position.col === col) continue;
+
+        // Check if this move is valid for the piece type
+        if (isValidMoveForPiece(piece, position, targetSquare, board)) {
+          moves.push(targetSquare);
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  function isValidMoveForPiece(piece, from, to, board) {
+    // Check basic bounds
+    if (to.row < 0 || to.row > 7 || to.col < 0 || to.col > 7) {
+      return false;
+    }
+
+    const targetPiece = board[to.row][to.col];
+
+    // Can't capture own piece
+    if (targetPiece) {
+      const movingPieceColor =
+        piece === piece.toLowerCase() ? "black" : "white";
+      const targetPieceColor =
+        targetPiece === targetPiece.toLowerCase() ? "black" : "white";
+      if (movingPieceColor === targetPieceColor) {
+        return false;
+      }
+    }
+
+    // Check piece-specific movement rules
+    switch (piece.toLowerCase()) {
+      case "r":
+        return isValidRookMove(from, to, board);
+      case "n":
+        return isValidKnightMove(from, to);
+      case "b":
+        return isValidBishopMove(from, to, board);
+      case "q":
+        return isValidQueenMove(from, to, board);
+      case "k":
+        return isValidKingMove(from, to);
+      case "p":
+        return isValidPawnMove(from, to, piece, board);
+      default:
+        return false;
+    }
+  }
+
+  function hasLegalMoves(color, board) {
+    const pieces = getAllPieces(color, board);
+
+    for (const pieceData of pieces) {
+      const possibleMoves = getPossibleMoves(pieceData, board);
+
+      for (const move of possibleMoves) {
+        // Create temporary board with this move
+        const tempBoard = board.map((row) => [...row]);
+        const piece = tempBoard[pieceData.position.row][pieceData.position.col];
+        tempBoard[pieceData.position.row][pieceData.position.col] = null;
+        tempBoard[move.row][move.col] = piece;
+
+        // Check if king is still in check after this move
+        if (!isKingInCheck(color, tempBoard)) {
+          return true; // Found at least one legal move
+        }
+      }
+    }
+
+    return false; // No legal moves found
+  }
+
+  function isCheckmate(color, board) {
+    // First check if king is in check
+    if (!isKingInCheck(color, board)) {
+      return false; // Not in check, so not checkmate
+    }
+
+    // King is in check, now check if there are any legal moves
+    return !hasLegalMoves(color, board);
+  }
+
+  function isStalemate(color, board) {
+    // King must not be in check
+    if (isKingInCheck(color, board)) {
+      return false;
+    }
+
+    // Check if there are no legal moves
+    return !hasLegalMoves(color, board);
+  }
+
   function grabPiece(e) {
     const element = e.target;
 
@@ -439,6 +564,11 @@ const ChessBoard = () => {
       const targetSquare = getSquareFromCoords(e.clientX, e.clientY);
 
       if (targetSquare && isLegalMove(originalPosition, targetSquare)) {
+        // Store move data before cleanup
+        const moveFrom = { ...originalPosition };
+        const moveTo = { ...targetSquare };
+        const nextPlayer = currentPlayer === "white" ? "black" : "white";
+
         // Valid move - snap to center of target square
         const pixelPos = getPixelPosition(targetSquare.row, targetSquare.col);
 
@@ -448,15 +578,31 @@ const ChessBoard = () => {
 
         // Update board state
         updateBoardState(originalPosition, targetSquare);
-        // setIsWhiteTurn(!isWhiteTurn);
-        setCurrentPlayer((prevPlayer) => {
-          return prevPlayer == "white" ? "black" : "white";
-        });
+
+        // Switch player
+        setCurrentPlayer(nextPlayer);
+
         playDrop();
 
-        // Update piece data attributes
         activePiece.dataset.row = targetSquare.row;
         activePiece.dataset.col = targetSquare.col;
+
+        // Check for game ending conditions after the move
+        setTimeout(() => {
+          // Create the board state after the move
+          const newBoardState = boardState.map((row) => [...row]);
+          const piece = newBoardState[moveFrom.row][moveFrom.col];
+          newBoardState[moveFrom.row][moveFrom.col] = null;
+          newBoardState[moveTo.row][moveTo.col] = piece;
+
+          if (isCheckmate(nextPlayer, newBoardState)) {
+            alert(`Checkmate! ${currentPlayer} wins!`);
+          } else if (isStalemate(nextPlayer, newBoardState)) {
+            alert("Stalemate! It's a draw!");
+          } else if (isKingInCheck(nextPlayer, newBoardState)) {
+            alert(`Check! ${nextPlayer} king is under attack.`);
+          }
+        }, 100); // Small delay to ensure state is updated
       } else {
         // Invalid move - reset piece to original tile position
         activePiece.style.position = "static";
@@ -471,9 +617,6 @@ const ChessBoard = () => {
       activePiece = null;
       originalPosition = { row: -1, col: -1 };
     }
-
-    // console.log(`Board State(chessBoard.jsx): ${typeof(boardState)}`);
-    // console.dir(boardState);
   }
 
   let chessBoard = [];
