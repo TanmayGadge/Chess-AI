@@ -42,6 +42,7 @@ const ChessBoard = () => {
   const [showPromotionModal, setShowPromotionModal] = useState(false);
   const [promotionPosition, setPromotionPosition] = useState(null);
   const [promotionColor, setPromotionColor] = useState(null);
+  const [pendingPlayerSwitch, setPendingPlayerSwitch] = useState(false);
 
   console.log(`Current Player: ${currentPlayer}`);
 
@@ -255,6 +256,7 @@ const ChessBoard = () => {
     setPromotionPosition(position);
     setPromotionColor(color);
     setShowPromotionModal(true);
+    setPendingPlayerSwitch(true);
   }
 
   function completePawnPromotion(pieceType) {
@@ -274,6 +276,28 @@ const ChessBoard = () => {
     setShowPromotionModal(false);
     setPromotionPosition(null);
     setPromotionColor(null);
+
+    // Now switch the player after promotion is complete
+    if (pendingPlayerSwitch) {
+      setCurrentPlayer(currentPlayer === "white" ? "black" : "white");
+      setPendingPlayerSwitch(false);
+    }
+
+    // Check for game end conditions after promotion
+    setTimeout(() => {
+      const nextPlayer = currentPlayer === "white" ? "black" : "white";
+      const newBoardState = [...boardState];
+      newBoardState[promotionPosition.row][promotionPosition.col] =
+        promotedPiece;
+
+      if (isCheckmate(nextPlayer, newBoardState)) {
+        alert(`Checkmate! ${currentPlayer} wins!`);
+      } else if (isStalemate(nextPlayer, newBoardState)) {
+        alert("Stalemate! It's a draw!");
+      } else if (isKingInCheck(nextPlayer, newBoardState)) {
+        alert(`Check! ${nextPlayer} king is under attack.`);
+      }
+    }, 100);
   }
 
   function isValidMove(from, to) {
@@ -754,9 +778,6 @@ const ChessBoard = () => {
         // Check for pawn promotion
         if (isPawnPromotion(originalPosition, targetSquare, movingPiece)) {
           // Move the piece first
-          const moveFrom = { ...originalPosition };
-          const moveTo = { ...targetSquare };
-
           const pixelPos = getPixelPosition(targetSquare.row, targetSquare.col);
           activePiece.style.position = "fixed";
           activePiece.style.left = `${pixelPos.x}px`;
@@ -773,7 +794,6 @@ const ChessBoard = () => {
           // Show promotion modal
           handlePawnPromotion(targetSquare, movingPieceColor);
 
-          // Don't switch player yet - wait for promotion selection
           playDrop();
           return;
         }
@@ -876,22 +896,66 @@ const ChessBoard = () => {
     });
   });
 
+  // Promotion Modal Component
+  const PromotionModal = () => {
+    if (!showPromotionModal) return null;
+
+    const pieces = [
+      { type: "q", name: "Queen" },
+      { type: "r", name: "Rook" },
+      { type: "b", name: "Bishop" },
+      { type: "n", name: "Knight" },
+    ];
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg shadow-lg">
+          <h3 className="text-lg font-bold mb-4 text-center">
+            Promote your pawn to:
+          </h3>
+          <div className="flex gap-4">
+            {pieces.map((piece) => {
+              const pieceImage = `${promotionColor}-${piece.name.toLowerCase()}`;
+              return (
+                <button
+                  key={piece.type}
+                  onClick={() => completePawnPromotion(piece.type)}
+                  className="flex flex-col items-center p-3 border-2 border-gray-300 rounded hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                >
+                  <img
+                    src={`/${pieceImage}.svg`}
+                    alt={piece.name}
+                    className="w-12 h-12 mb-2"
+                  />
+                  <span className="text-sm font-medium">{piece.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div
-      className="mx-auto w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] p-4"
-      ref={chessBoardRef}
-      onMouseDown={(e) => {
-        grabPiece(e);
-      }}
-      onMouseMove={(e) => {
-        movePiece(e);
-      }}
-      onMouseUp={(e) => {
-        dropPiece(e);
-      }}
-    >
-      {chessBoard}
-    </div>
+    <>
+      <div
+        className="mx-auto w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] p-4"
+        ref={chessBoardRef}
+        onMouseDown={(e) => {
+          grabPiece(e);
+        }}
+        onMouseMove={(e) => {
+          movePiece(e);
+        }}
+        onMouseUp={(e) => {
+          dropPiece(e);
+        }}
+      >
+        {chessBoard}
+      </div>
+      <PromotionModal />
+    </>
   );
 };
 
