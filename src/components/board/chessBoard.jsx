@@ -42,7 +42,8 @@ const ChessBoard = () => {
     gameState,
     setGameState,
     isAIGame,
-    depth
+    depth,
+    isAlphaBeta,
   } = useBoard();
 
   socket.onopen = () => {
@@ -101,7 +102,7 @@ const ChessBoard = () => {
         // Game over - no moves available
         console.log("AI has no legal moves - game over");
       }
-      if(isCheckmate(currentPlayer, boardState)) {
+      if (isCheckmate(currentPlayer, boardState)) {
         setGameState("checkmate");
         console.log("Checkmate");
       }
@@ -157,7 +158,64 @@ const ChessBoard = () => {
     }
   }
 
-  
+  function minimaxAlphaBeta(
+    board,
+    depth,
+    maximizingPlayer,
+    alpha = -Infinity,
+    beta = +Infinity
+  ) {
+    if (depth === 0 || isGameOver(board)) {
+      return evaluateBoard(board);
+    }
+
+    if (maximizingPlayer) {
+      let maxEval = -Infinity;
+
+      const whiteMoves = getAllLegalMoves("white", board);
+
+      for (const move of whiteMoves) {
+        const newBoard = makeMove(board, move);
+        const evaluation = minimaxAlphaBeta(
+          newBoard,
+          depth - 1,
+          false,
+          alpha,
+          beta
+        );
+        maxEval = Math.max(maxEval, evaluation);
+        alpha = Math.max(alpha, evaluation);
+
+        if (beta <= alpha) {
+          break;
+        }
+      }
+
+      return maxEval;
+    } else {
+      let minEval = +Infinity;
+      const blackMoves = getAllLegalMoves("black", board);
+
+      for (const move of blackMoves) {
+        const newBoard = makeMove(board, move);
+        const evaluation = minimaxAlphaBeta(
+          newBoard,
+          depth - 1,
+          true,
+          alpha,
+          beta
+        );
+        minEval = Math.min(minEval, evaluation);
+        beta = Math.min(beta, evaluation);
+        if (beta <= alpha) {
+          break;
+        }
+      }
+
+      return minEval;
+    }
+  }
+
   function getBestMove(board, color, depth = 2) {
     const isMaximizing = color === "white";
     let bestMove = null;
@@ -183,7 +241,12 @@ const ChessBoard = () => {
       const newBoard = makeMove(board, move);
 
       // Get the minimax value for this move
-      const moveValue = minimax(newBoard, depth - 1, !isMaximizing);
+      let moveValue;
+      if (isAlphaBeta) {
+        moveValue = minimaxAlphaBeta(newBoard, depth - 1, !isMaximizing);
+      }else{
+        moveValue = minimax(newBoard, depth - 1, !isMaximizing);
+      }
 
       console.log(
         `Move ${i + 1}/${possibleMoves.length}: ${move.piece} ${

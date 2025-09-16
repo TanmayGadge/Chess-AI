@@ -21,6 +21,7 @@ export const BoardProvider = ({ children }) => {
   const [gameState, setGameState] = useState(null);
   const [isAIGame, setIsAIGame] = useState(true);
   const [depth, setDepth] = useState(4);
+  const [isAlphaBeta, setIsAlphaBeta] = useState(false);
 
   const numberOfMoves = useRef(0);
 
@@ -93,7 +94,9 @@ export const BoardProvider = ({ children }) => {
         isAIGame,
         setIsAIGame,
         depth,
-        setDepth
+        setDepth,
+        isAlphaBeta,
+        setIsAlphaBeta
       }}
     >
       {children}
