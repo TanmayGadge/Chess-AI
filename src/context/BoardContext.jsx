@@ -8,7 +8,7 @@ export const useBoard = () => {
 };
 
 export const BoardProvider = ({ children }) => {
-  let startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+  const startingFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
   const [boardState, setBoardState] = useState(() => useFEN(startingFEN));
   const [prevBoardState, setPrevBoardState] = useState(null);
   const [capturedPieces, setCapturedPieces] = useState([]);
@@ -18,6 +18,9 @@ export const BoardProvider = ({ children }) => {
   const [promotionColor, setPromotionColor] = useState(null);
   const [pendingPlayerSwitch, setPendingPlayerSwitch] = useState(false);
   const [moveHistory, setMoveHistory] = useState([]);
+  const [gameState, setGameState] = useState(null);
+  const [isAIGame, setIsAIGame] = useState(true);
+  const [depth, setDepth] = useState(4);
 
   const numberOfMoves = useRef(0);
 
@@ -85,6 +88,12 @@ export const BoardProvider = ({ children }) => {
         numberOfMoves,
         moveHistory,
         setMoveHistory,
+        gameState,
+        setGameState,
+        isAIGame,
+        setIsAIGame,
+        depth,
+        setDepth
       }}
     >
       {children}

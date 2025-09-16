@@ -8,6 +8,8 @@ import { useBoard } from "../../context/BoardContext";
 import arrayToFEN from "../../hooks/useBoard";
 import useFEN from "../../hooks/useFEN";
 
+import evaluateBoard from "../../ai/evaluateBoard";
+
 const socket = new WebSocket("ws://localhost:8080");
 
 const ChessBoard = () => {
@@ -36,7 +38,11 @@ const ChessBoard = () => {
     setPendingPlayerSwitch,
     numberOfMoves,
     moveHistory,
-    setMoveHistory
+    setMoveHistory,
+    gameState,
+    setGameState,
+    isAIGame,
+    depth
   } = useBoard();
 
   socket.onopen = () => {
@@ -46,19 +52,18 @@ const ChessBoard = () => {
 
   socket.onmessage = async (message) => {
     const recievedData = await message.data.text();
-    const data = JSON.parse(recievedData)
+    const data = JSON.parse(recievedData);
     console.log(`recievedBoardState: ${recievedData}`);
 
     const recievedFenString = data.fen;
     const recievedCurrentPlayer = data.player;
 
-    console.log(`Recieved FEN String: ${recievedFenString}`)
-    console.log(`Recieved Current Player: ${recievedCurrentPlayer}`)
+    console.log(`Recieved FEN String: ${recievedFenString}`);
+    console.log(`Recieved Current Player: ${recievedCurrentPlayer}`);
 
     let newBoardState = useFEN(recievedFenString);
     setBoardState(newBoardState);
     setCurrentPlayer(recievedCurrentPlayer);
-
   };
 
   socket.onclose = () => {
@@ -75,10 +80,614 @@ const ChessBoard = () => {
       const fenString = arrayToFEN(boardState);
       const data = { fen: fenString, player: currentPlayer };
       // socket.send(fenString);
-      socket.send(JSON.stringify(data))
+      socket.send(JSON.stringify(data));
     }
-    console.log(`Number of Moves: ${numberOfMoves.current}`)
+    console.log(`Number of Moves: ${numberOfMoves.current}`);
   }, [numberOfMoves.current]);
+
+  useEffect(() => {
+    numberOfMoves.current += 1;
+  }, [boardState]);
+
+  useEffect(() => {
+    if (currentPlayer === "black" && isAIGame) {
+      const aiMove = getAIMove(boardState, depth);
+
+      if (aiMove) {
+        // Apply the AI move to your game
+        updateBoardState(aiMove.from, aiMove.to);
+        setCurrentPlayer("white");
+      } else {
+        // Game over - no moves available
+        console.log("AI has no legal moves - game over");
+      }
+      if(isCheckmate(currentPlayer, boardState)) {
+        setGameState("checkmate");
+        console.log("Checkmate");
+      }
+    }
+  }, [boardState]);
+
+  function minimax(board, depth, maximizingPlayer) {
+    // Base case: if we've reached max depth or game is over
+    if (depth === 0 || isGameOver(board)) {
+      return evaluateBoard(board);
+    }
+
+    if (maximizingPlayer) {
+      // White's turn - trying to maximize score
+      let maxEval = -Infinity;
+
+      // Get all possible moves for white
+      const whiteMoves = getAllLegalMoves("white", board);
+
+      // Try each possible move
+      for (const move of whiteMoves) {
+        // Make the move on a copy of the board
+        const newBoard = makeMove(board, move);
+
+        // Recursively evaluate this position (now it's black's turn)
+        const evaluation = minimax(newBoard, depth - 1, false);
+
+        // Keep track of the best (highest) score
+        maxEval = Math.max(maxEval, evaluation);
+      }
+
+      return maxEval;
+    } else {
+      // Black's turn - trying to minimize score
+      let minEval = +Infinity;
+
+      // Get all possible moves for black
+      const blackMoves = getAllLegalMoves("black", board);
+
+      // Try each possible move
+      for (const move of blackMoves) {
+        // Make the move on a copy of the board
+        const newBoard = makeMove(board, move);
+
+        // Recursively evaluate this position (now it's white's turn)
+        const evaluation = minimax(newBoard, depth - 1, true);
+
+        // Keep track of the best (lowest) score
+        minEval = Math.min(minEval, evaluation);
+      }
+
+      return minEval;
+    }
+  }
+
+  
+  function getBestMove(board, color, depth = 2) {
+    const isMaximizing = color === "white";
+    let bestMove = null;
+    let bestValue = isMaximizing ? -Infinity : +Infinity;
+
+    // Get all legal moves for the AI color
+    const possibleMoves = getAllLegalMoves(color, board);
+
+    // If no moves available, return null (checkmate or stalemate)
+    if (possibleMoves.length === 0) {
+      return null;
+    }
+
+    console.log(
+      `AI evaluating ${possibleMoves.length} possible moves at depth ${depth}`
+    );
+
+    // Evaluate each possible move
+    for (let i = 0; i < possibleMoves.length; i++) {
+      const move = possibleMoves[i];
+
+      // Make the move on a copy of the board
+      const newBoard = makeMove(board, move);
+
+      // Get the minimax value for this move
+      const moveValue = minimax(newBoard, depth - 1, !isMaximizing);
+
+      console.log(
+        `Move ${i + 1}/${possibleMoves.length}: ${move.piece} ${
+          move.from.row
+        },${move.from.col} -> ${move.to.row},${move.to.col} = ${moveValue}`
+      );
+
+      // Check if this is the best move so far
+      if (isMaximizing) {
+        // White wants maximum value
+        if (moveValue > bestValue) {
+          bestValue = moveValue;
+          bestMove = move;
+        }
+      } else {
+        // Black wants minimum value
+        if (moveValue < bestValue) {
+          bestValue = moveValue;
+          bestMove = move;
+        }
+      }
+    }
+
+    console.log(
+      `Best move found: ${bestMove.piece} ${bestMove.from.row},${bestMove.from.col} -> ${bestMove.to.row},${bestMove.to.col} with value ${bestValue}`
+    );
+
+    return bestMove;
+  }
+
+  function makeMove(board, move) {
+    // Create a deep copy of the board
+    const newBoard = board.map((row) => [...row]);
+
+    // Clear the source square
+    newBoard[move.from.row][move.from.col] = null;
+
+    // Place the piece on the destination square
+    newBoard[move.to.row][move.to.col] = move.piece;
+
+    // Handle special moves
+    if (
+      move.piece.toLowerCase() === "k" &&
+      Math.abs(move.to.col - move.from.col) === 2
+    ) {
+      // Castling - also move the rook
+      // handleCastlingInMove(newBoard, move);
+      const isWhite = move.piece === move.piece.toUpperCase();
+      const row = isWhite ? 7 : 0;
+      const rook = isWhite ? "R" : "r";
+
+      if (move.to.col === 6) {
+        // Kingside castling (king moves to g-file)
+        newBoard[row][7] = null; // Remove rook from h-file
+        newBoard[row][5] = rook; // Place rook on f-file
+      } else if (move.to.col === 2) {
+        // Queenside castling (king moves to c-file)
+        newBoard[row][0] = null; // Remove rook from a-file
+        newBoard[row][3] = rook; // Place rook on d-file
+      }
+    }
+
+    // Handle pawn promotion (if needed)
+    if (isPawnPromotionMove(move)) {
+      // For AI, always promote to queen (simplest choice)
+      const color = move.piece === move.piece.toUpperCase() ? "white" : "black";
+      newBoard[move.to.row][move.to.col] = color === "white" ? "Q" : "q";
+    }
+
+    return newBoard;
+  }
+
+  function isPawnPromotionMove(move) {
+    if (move.piece.toLowerCase() !== "p") return false;
+
+    const isWhite = move.piece === move.piece.toUpperCase();
+    const promotionRow = isWhite ? 0 : 7;
+
+    return move.to.row === promotionRow;
+  }
+
+  function isGameOver(board) {
+    // Check if either side has no legal moves
+    const whiteMoves = getAllLegalMoves("white", board);
+    const blackMoves = getAllLegalMoves("black", board);
+
+    return whiteMoves.length === 0 || blackMoves.length === 0;
+  }
+
+  function getAIMove(currentBoard, difficulty = 4) {
+    console.log("AI is thinking...");
+    const startTime = Date.now();
+
+    // AI always plays as black in this implementation
+    const bestMove = getBestMove(currentBoard, "black", difficulty);
+
+    const endTime = Date.now();
+    console.log(`AI calculation took ${endTime - startTime}ms`);
+
+    return bestMove;
+  }
+
+  function getAllLegalMoves(color, board = boardState) {
+    const moves = [];
+    const pieces = getAllPieces(color, board);
+
+    for (const pieceData of pieces) {
+      const pieceMoves = getLegalMovesForPiece(pieceData, board);
+      moves.push(...pieceMoves);
+    }
+
+    return moves;
+  }
+
+  function getLegalMovesForPiece(pieceData, board) {
+    const { piece, position } = pieceData;
+    const moves = [];
+
+    const possibleMoves = generatePossibleMoves(piece, position, board);
+
+    for (const targetSquare of possibleMoves) {
+      if (isLegalMoveForAI(position, targetSquare, board)) {
+        moves.push({
+          from: { ...position },
+          to: { ...targetSquare },
+          piece: piece,
+          capturedPieces: board[targetSquare.row][targetSquare.col],
+        });
+      }
+    }
+
+    return moves;
+  }
+
+  function isLegalMoveForAI(from, to, board) {
+    if (!isValidMoveOnBoard(from, to, board)) {
+      return false;
+    }
+
+    const tempBoard = makeTempMove(from, to, board);
+
+    const piece = board[from.row][from.col];
+    const pieceColor = piece === piece.toLowerCase() ? "black" : "white";
+
+    return !isKingInCheck(pieceColor, tempBoard);
+  }
+
+  function generatePossibleMoves(piece, position, board) {
+    const moves = [];
+
+    switch (piece.toLowerCase()) {
+      case "p":
+        moves.push(...generatePawnMoves(piece, position, board));
+        break;
+      case "r":
+        moves.push(...generateRookMoves(position, board));
+        break;
+      case "n":
+        moves.push(...generateKnightMoves(position));
+        break;
+      case "b":
+        moves.push(...generateBishopMoves(position, board));
+        break;
+      case "q":
+        moves.push(...generateQueenMoves(position, board));
+        break;
+      case "k":
+        moves.push(...generateKingMoves(piece, position, board));
+        break;
+    }
+
+    return moves;
+  }
+
+  function isValidSquare(square) {
+    return (
+      square.row >= 0 && square.row < 8 && square.col >= 0 && square.col < 8
+    );
+  }
+
+  function generatePawnMoves(piece, position, board) {
+    const moves = [];
+    const isWhite = piece === piece.toUpperCase();
+    const direction = isWhite ? -1 : 1;
+    const { row, col } = position;
+
+    // Forward move (1 square)
+    const oneForward = { row: row + direction, col };
+    if (isValidSquare(oneForward) && !board[oneForward.row][oneForward.col]) {
+      moves.push(oneForward);
+
+      // Double move from starting position
+      const startingRow = isWhite ? 6 : 1;
+      if (row === startingRow) {
+        const twoForward = { row: row + 2 * direction, col };
+        if (
+          isValidSquare(twoForward) &&
+          !board[twoForward.row][twoForward.col]
+        ) {
+          moves.push(twoForward);
+        }
+      }
+    }
+
+    // Diagonal captures
+    for (const colOffset of [-1, 1]) {
+      const captureSquare = { row: row + direction, col: col + colOffset };
+      if (isValidSquare(captureSquare)) {
+        const targetPiece = board[captureSquare.row][captureSquare.col];
+        if (targetPiece) {
+          // Check if it's an enemy piece
+          const targetColor =
+            targetPiece === targetPiece.toLowerCase() ? "black" : "white";
+          const movingColor = isWhite ? "white" : "black";
+
+          if (targetColor !== movingColor) {
+            moves.push(captureSquare);
+          }
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  // Generate all possible rook moves
+  function generateRookMoves(position, board) {
+    const moves = [];
+    const { row, col } = position;
+
+    // Rook moves in 4 directions: up, down, left, right
+    const directions = [
+      [-1, 0], // up
+      [1, 0], // down
+      [0, -1], // left
+      [0, 1], // right
+    ];
+
+    for (const [rowDir, colDir] of directions) {
+      let currentRow = row + rowDir;
+      let currentCol = col + colDir;
+
+      while (isValidSquare({ row: currentRow, col: currentCol })) {
+        const targetPiece = board[currentRow][currentCol];
+
+        if (!targetPiece) {
+          // Empty square - valid move
+          moves.push({ row: currentRow, col: currentCol });
+        } else {
+          // Piece found - can capture if enemy, then stop
+          const movingPiece = board[row][col];
+          const movingColor =
+            movingPiece === movingPiece.toLowerCase() ? "black" : "white";
+          const targetColor =
+            targetPiece === targetPiece.toLowerCase() ? "black" : "white";
+
+          if (movingColor !== targetColor) {
+            moves.push({ row: currentRow, col: currentCol });
+          }
+          break; // Stop sliding in this direction
+        }
+
+        currentRow += rowDir;
+        currentCol += colDir;
+      }
+    }
+
+    return moves;
+  }
+
+  // Generate all possible knight moves
+  function generateKnightMoves(position) {
+    const moves = [];
+    const { row, col } = position;
+
+    // Knight moves in L-shape: 8 possible moves
+    const knightMoves = [
+      [-2, -1],
+      [-2, 1], // up 2, left/right 1
+      [-1, -2],
+      [-1, 2], // up 1, left/right 2
+      [1, -2],
+      [1, 2], // down 1, left/right 2
+      [2, -1],
+      [2, 1], // down 2, left/right 1
+    ];
+
+    for (const [rowOffset, colOffset] of knightMoves) {
+      const targetSquare = { row: row + rowOffset, col: col + colOffset };
+
+      if (isValidSquare(targetSquare)) {
+        moves.push(targetSquare);
+      }
+    }
+
+    return moves;
+  }
+
+  // Generate all possible bishop moves
+  function generateBishopMoves(position, board) {
+    const moves = [];
+    const { row, col } = position;
+
+    // Bishop moves diagonally in 4 directions
+    const directions = [
+      [-1, -1], // up-left
+      [-1, 1], // up-right
+      [1, -1], // down-left
+      [1, 1], // down-right
+    ];
+
+    for (const [rowDir, colDir] of directions) {
+      let currentRow = row + rowDir;
+      let currentCol = col + colDir;
+
+      while (isValidSquare({ row: currentRow, col: currentCol })) {
+        const targetPiece = board[currentRow][currentCol];
+
+        if (!targetPiece) {
+          // Empty square - valid move
+          moves.push({ row: currentRow, col: currentCol });
+        } else {
+          // Piece found - can capture if enemy, then stop
+          const movingPiece = board[row][col];
+          const movingColor =
+            movingPiece === movingPiece.toLowerCase() ? "black" : "white";
+          const targetColor =
+            targetPiece === targetPiece.toLowerCase() ? "black" : "white";
+
+          if (movingColor !== targetColor) {
+            moves.push({ row: currentRow, col: currentCol });
+          }
+          break; // Stop sliding in this direction
+        }
+
+        currentRow += rowDir;
+        currentCol += colDir;
+      }
+    }
+
+    return moves;
+  }
+
+  // Generate all possible queen moves (combination of rook and bishop)
+  function generateQueenMoves(position, board) {
+    const rookMoves = generateRookMoves(position, board);
+    const bishopMoves = generateBishopMoves(position, board);
+
+    return [...rookMoves, ...bishopMoves];
+  }
+
+  // Generate all possible king moves
+  function generateKingMoves(piece, position, board) {
+    const moves = [];
+    const { row, col } = position;
+
+    // King moves one square in any direction
+    const kingMoves = [
+      [-1, -1],
+      [-1, 0],
+      [-1, 1], // up row
+      [0, -1],
+      [0, 1], // same row (left, right)
+      [1, -1],
+      [1, 0],
+      [1, 1], // down row
+    ];
+
+    for (const [rowOffset, colOffset] of kingMoves) {
+      const targetSquare = { row: row + rowOffset, col: col + colOffset };
+
+      if (isValidSquare(targetSquare)) {
+        moves.push(targetSquare);
+      }
+    }
+
+    // Add castling moves (you'll need to implement castling logic)
+    const isWhite = piece === piece.toUpperCase();
+    const castlingMoves = generateCastlingMoves(
+      isWhite ? "white" : "black",
+      position,
+      board
+    );
+    moves.push(...castlingMoves);
+
+    return moves;
+  }
+
+  // Generate castling moves (you'll need to adapt this to use your existing castling logic)
+  function generateCastlingMoves(color, position, board) {
+    const moves = [];
+    const { row, col } = position;
+
+    // Only check castling if king is in starting position
+    const startingRow = color === "white" ? 7 : 0;
+    if (row !== startingRow || col !== 4) {
+      return moves;
+    }
+
+    // Check kingside castling
+    if (canCastle(color, "king", board)) {
+      moves.push({ row: startingRow, col: 6 });
+    }
+
+    // Check queenside castling
+    if (canCastle(color, "queen", board)) {
+      moves.push({ row: startingRow, col: 2 });
+    }
+
+    return moves;
+  }
+
+  // Main function to generate all possible moves for a piece
+  function generatePossibleMoves(piece, position, board) {
+    const moves = [];
+
+    switch (piece.toLowerCase()) {
+      case "p":
+        moves.push(...generatePawnMoves(piece, position, board));
+        break;
+      case "r":
+        moves.push(...generateRookMoves(position, board));
+        break;
+      case "n":
+        moves.push(...generateKnightMoves(position));
+        break;
+      case "b":
+        moves.push(...generateBishopMoves(position, board));
+        break;
+      case "q":
+        moves.push(...generateQueenMoves(position, board));
+        break;
+      case "k":
+        moves.push(...generateKingMoves(piece, position, board));
+        break;
+    }
+
+    return moves;
+  }
+
+  // Function to get all legal moves for a piece (filters out moves that leave king in check)
+  function getLegalMovesForPiece(pieceData, board) {
+    const { piece, position } = pieceData;
+    const moves = [];
+
+    // Generate all possible target squares for this piece type
+    const possibleMoves = generatePossibleMoves(piece, position, board);
+
+    // Filter to only legal moves (doesn't leave king in check)
+    for (const targetSquare of possibleMoves) {
+      if (isLegalMoveForAI(position, targetSquare, board)) {
+        moves.push({
+          from: { ...position },
+          to: { ...targetSquare },
+          piece: piece,
+          capturedPiece: board[targetSquare.row][targetSquare.col],
+        });
+      }
+    }
+
+    return moves;
+  }
+
+  // Check if a move is legal (doesn't leave own king in check)
+  function isLegalMoveForAI(from, to, board) {
+    // First check if target square has own piece
+    const movingPiece = board[from.row][from.col];
+    const targetPiece = board[to.row][to.col];
+
+    if (targetPiece) {
+      const movingColor =
+        movingPiece === movingPiece.toLowerCase() ? "black" : "white";
+      const targetColor =
+        targetPiece === targetPiece.toLowerCase() ? "black" : "white";
+
+      if (movingColor === targetColor) {
+        return false; // Can't capture own piece
+      }
+    }
+
+    // Make temporary move
+    const tempBoard = board.map((row) => [...row]);
+    tempBoard[from.row][from.col] = null;
+    tempBoard[to.row][to.col] = movingPiece;
+
+    // Check if this move leaves own king in check
+    const pieceColor =
+      movingPiece === movingPiece.toLowerCase() ? "black" : "white";
+
+    return !isKingInCheck(pieceColor, tempBoard);
+  }
+
+  // Main function to get all legal moves for a color
+  function getAllLegalMoves(color, board) {
+    const moves = [];
+    const pieces = getAllPieces(color, board);
+
+    for (const pieceData of pieces) {
+      const pieceMoves = getLegalMovesForPiece(pieceData, board);
+      moves.push(...pieceMoves);
+    }
+
+    return moves;
+  }
 
   // Add states for tracking castling rights and pawn promotion
   const [castlingRights, setCastlingRights] = useState({
@@ -769,6 +1378,7 @@ const ChessBoard = () => {
           const side =
             targetSquare.col > originalPosition.col ? "king" : "queen";
           performCastle(movingPieceColor, side);
+          numberOfMoves.current += 1;
 
           // Clean up and switch player
           activePiece.classList.remove("grabbed-piece");
@@ -833,6 +1443,7 @@ const ChessBoard = () => {
 
           if (isCheckmate(nextPlayer, newBoardState)) {
             alert(`Checkmate! ${currentPlayer} wins!`);
+            setGameState("gameover");
           } else if (isStalemate(nextPlayer, newBoardState)) {
             alert("Stalemate! It's a draw!");
           } else if (isKingInCheck(nextPlayer, newBoardState)) {
@@ -853,10 +1464,9 @@ const ChessBoard = () => {
     }
 
     const latestMove = arrayToFEN(boardState);
-    setMoveHistory(prevMoves => {
-      return [...[prevMoves, latestMove]]
-    })
-    numberOfMoves.current += 1;
+    setMoveHistory((prevMoves) => {
+      return [...[prevMoves, latestMove]];
+    });
   }
 
   let chessBoard = [];
