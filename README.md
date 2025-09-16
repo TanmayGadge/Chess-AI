@@ -107,29 +107,6 @@ Follow these steps to get the project running on your local machine.
 
 ---
 
-## 📁 Project Structure
-
-├── public/               # Static assets (piece images, favicon)
-├── src/
-│   ├── ai/               # Core AI logic
-│   │   ├── evaluateBoard.js # Heuristic evaluation function
-│   │   └── minimax.js       # Minimax with alpha-beta pruning
-│   ├── components/         # Reusable React components
-│   │   ├── Board/
-│   │   ├── Button/
-│   │   └── ...
-│   ├── context/            # React Context for state management
-│   ├── hooks/              # Custom React hooks (e.g., useBoard)
-│   ├── server/             # Backend Socket.io server
-│   ├── App.jsx             # Main application component
-│   └── main.jsx            # Entry point of the React app
-├── .gitignore
-├── package.json
-├── README.md
-└── vite.config.js        # Vite configuration
-
----
-
 ## 🔮 Future Enhancements
 
 * **Transposition Tables**: Cache previously calculated board positions to speed up AI calculations.
