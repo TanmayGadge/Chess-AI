@@ -20,8 +20,8 @@ export const BoardProvider = ({ children }) => {
   const [moveHistory, setMoveHistory] = useState([]);
   const [gameState, setGameState] = useState(null);
   const [isAIGame, setIsAIGame] = useState(true);
-  const [depth, setDepth] = useState(4);
-  const [isAlphaBeta, setIsAlphaBeta] = useState(false);
+  const [depth, setDepth] = useState(6);
+  const [isAlphaBeta, setIsAlphaBeta] = useState(true);
 
   const numberOfMoves = useRef(0);
 

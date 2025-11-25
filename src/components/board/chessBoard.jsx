@@ -46,6 +46,7 @@ const ChessBoard = () => {
     isAlphaBeta,
   } = useBoard();
 
+  //An attempt at making it multiplayer
   socket.onopen = () => {
     // alert("Connected to the server");
     console.log("Conneted to the server");
@@ -92,20 +93,24 @@ const ChessBoard = () => {
 
   useEffect(() => {
     if (currentPlayer === "black" && isAIGame) {
-      const aiMove = getAIMove(boardState, depth);
+      const timeoutId = setTimeout(() => {
+        const aiMove = getAIMove(boardState, depth);
 
-      if (aiMove) {
-        // Apply the AI move to your game
-        updateBoardState(aiMove.from, aiMove.to);
-        setCurrentPlayer("white");
-      } else {
-        // Game over - no moves available
-        console.log("AI has no legal moves - game over");
-      }
-      if (isCheckmate(currentPlayer, boardState)) {
-        setGameState("checkmate");
-        console.log("Checkmate");
-      }
+        if (aiMove) {
+          // Apply the AI move to your game
+          updateBoardState(aiMove.from, aiMove.to);
+          setCurrentPlayer("white");
+        } else {
+          // Game over - no moves available
+          console.log("AI has no legal moves - game over");
+        }
+        if (isCheckmate(currentPlayer, boardState)) {
+          setGameState("checkmate");
+          console.log("Checkmate");
+        }
+      }, 50);
+
+      return ()=> {clearTimeout(timeoutId)};
     }
   }, [boardState]);
 
@@ -244,7 +249,7 @@ const ChessBoard = () => {
       let moveValue;
       if (isAlphaBeta) {
         moveValue = minimaxAlphaBeta(newBoard, depth - 1, !isMaximizing);
-      }else{
+      } else {
         moveValue = minimax(newBoard, depth - 1, !isMaximizing);
       }
 
