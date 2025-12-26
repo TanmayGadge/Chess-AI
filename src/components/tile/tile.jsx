@@ -9,7 +9,7 @@ export default function Tile({
   col
 }) {
   return (
-    <div className={`grid place-items-center ${number % 2 == 1 ? 'bg-[#ebecd0]' : 'bg-[#779556]'}`}>
+    <div className={`grid place-items-center ${number % 2 == 1 ? 'bg-[#779556]' : 'bg-[#ebecd0]'}`}>
       {image && (
         <div 
           className="chess-piece w-[70px] h-[70px] hover:cursor-grab active:cursor-grabbing bg-no-repeat bg-cover"

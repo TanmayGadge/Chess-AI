@@ -46,6 +46,7 @@ const ChessBoard = () => {
     isAlphaBeta,
   } = useBoard();
 
+  //An attempt at making it multiplayer
   socket.onopen = () => {
     // alert("Connected to the server");
     console.log("Conneted to the server");
@@ -92,65 +93,54 @@ const ChessBoard = () => {
 
   useEffect(() => {
     if (currentPlayer === "black" && isAIGame) {
-      const aiMove = getAIMove(boardState, depth);
+      const timeoutId = setTimeout(() => {
+        const aiMove = getAIMove(boardState, depth);
 
-      if (aiMove) {
-        // Apply the AI move to your game
-        updateBoardState(aiMove.from, aiMove.to);
-        setCurrentPlayer("white");
-      } else {
-        // Game over - no moves available
-        console.log("AI has no legal moves - game over");
-      }
-      if (isCheckmate(currentPlayer, boardState)) {
-        setGameState("checkmate");
-        console.log("Checkmate");
-      }
+        if (aiMove) {
+          updateBoardState(aiMove.from, aiMove.to);
+          setCurrentPlayer("white");
+        } else {
+          console.log("AI has no legal moves - game over");
+        }
+        if (isCheckmate(currentPlayer, boardState)) {
+          setGameState("checkmate");
+          console.log("Checkmate");
+        }
+      }, 50);
+
+      return ()=> {clearTimeout(timeoutId)};
     }
   }, [boardState]);
 
   function minimax(board, depth, maximizingPlayer) {
-    // Base case: if we've reached max depth or game is over
     if (depth === 0 || isGameOver(board)) {
       return evaluateBoard(board);
     }
 
     if (maximizingPlayer) {
-      // White's turn - trying to maximize score
       let maxEval = -Infinity;
 
-      // Get all possible moves for white
       const whiteMoves = getAllLegalMoves("white", board);
 
-      // Try each possible move
       for (const move of whiteMoves) {
-        // Make the move on a copy of the board
         const newBoard = makeMove(board, move);
 
-        // Recursively evaluate this position (now it's black's turn)
         const evaluation = minimax(newBoard, depth - 1, false);
 
-        // Keep track of the best (highest) score
         maxEval = Math.max(maxEval, evaluation);
       }
 
       return maxEval;
     } else {
-      // Black's turn - trying to minimize score
       let minEval = +Infinity;
 
-      // Get all possible moves for black
       const blackMoves = getAllLegalMoves("black", board);
 
-      // Try each possible move
       for (const move of blackMoves) {
-        // Make the move on a copy of the board
         const newBoard = makeMove(board, move);
 
-        // Recursively evaluate this position (now it's white's turn)
         const evaluation = minimax(newBoard, depth - 1, true);
 
-        // Keep track of the best (lowest) score
         minEval = Math.min(minEval, evaluation);
       }
 
@@ -221,10 +211,9 @@ const ChessBoard = () => {
     let bestMove = null;
     let bestValue = isMaximizing ? -Infinity : +Infinity;
 
-    // Get all legal moves for the AI color
     const possibleMoves = getAllLegalMoves(color, board);
 
-    // If no moves available, return null (checkmate or stalemate)
+    // checkmate or stalemate
     if (possibleMoves.length === 0) {
       return null;
     }
@@ -233,18 +222,16 @@ const ChessBoard = () => {
       `AI evaluating ${possibleMoves.length} possible moves at depth ${depth}`
     );
 
-    // Evaluate each possible move
     for (let i = 0; i < possibleMoves.length; i++) {
       const move = possibleMoves[i];
 
-      // Make the move on a copy of the board
       const newBoard = makeMove(board, move);
 
-      // Get the minimax value for this move
+      
       let moveValue;
       if (isAlphaBeta) {
         moveValue = minimaxAlphaBeta(newBoard, depth - 1, !isMaximizing);
-      }else{
+      } else {
         moveValue = minimax(newBoard, depth - 1, !isMaximizing);
       }
 
@@ -254,7 +241,7 @@ const ChessBoard = () => {
         },${move.from.col} -> ${move.to.row},${move.to.col} = ${moveValue}`
       );
 
-      // Check if this is the best move so far
+      
       if (isMaximizing) {
         // White wants maximum value
         if (moveValue > bestValue) {
@@ -278,40 +265,34 @@ const ChessBoard = () => {
   }
 
   function makeMove(board, move) {
-    // Create a deep copy of the board
+    
     const newBoard = board.map((row) => [...row]);
 
-    // Clear the source square
+  
     newBoard[move.from.row][move.from.col] = null;
 
-    // Place the piece on the destination square
     newBoard[move.to.row][move.to.col] = move.piece;
 
-    // Handle special moves
     if (
       move.piece.toLowerCase() === "k" &&
       Math.abs(move.to.col - move.from.col) === 2
     ) {
-      // Castling - also move the rook
-      // handleCastlingInMove(newBoard, move);
       const isWhite = move.piece === move.piece.toUpperCase();
       const row = isWhite ? 7 : 0;
       const rook = isWhite ? "R" : "r";
 
       if (move.to.col === 6) {
-        // Kingside castling (king moves to g-file)
-        newBoard[row][7] = null; // Remove rook from h-file
-        newBoard[row][5] = rook; // Place rook on f-file
+        // Kingside castling 
+        newBoard[row][7] = null; 
+        newBoard[row][5] = rook; 
       } else if (move.to.col === 2) {
-        // Queenside castling (king moves to c-file)
-        newBoard[row][0] = null; // Remove rook from a-file
-        newBoard[row][3] = rook; // Place rook on d-file
+        // Queenside castling 
+        newBoard[row][0] = null; 
+        newBoard[row][3] = rook;
       }
     }
 
-    // Handle pawn promotion (if needed)
     if (isPawnPromotionMove(move)) {
-      // For AI, always promote to queen (simplest choice)
       const color = move.piece === move.piece.toUpperCase() ? "white" : "black";
       newBoard[move.to.row][move.to.col] = color === "white" ? "Q" : "q";
     }
@@ -329,7 +310,6 @@ const ChessBoard = () => {
   }
 
   function isGameOver(board) {
-    // Check if either side has no legal moves
     const whiteMoves = getAllLegalMoves("white", board);
     const blackMoves = getAllLegalMoves("black", board);
 
@@ -339,7 +319,6 @@ const ChessBoard = () => {
   function getAIMove(currentBoard, difficulty = 4) {
     console.log("AI is thinking...");
     const startTime = Date.now();
-
     // AI always plays as black in this implementation
     const bestMove = getBestMove(currentBoard, "black", difficulty);
 
@@ -472,12 +451,10 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Generate all possible rook moves
   function generateRookMoves(position, board) {
     const moves = [];
     const { row, col } = position;
 
-    // Rook moves in 4 directions: up, down, left, right
     const directions = [
       [-1, 0], // up
       [1, 0], // down
@@ -493,7 +470,6 @@ const ChessBoard = () => {
         const targetPiece = board[currentRow][currentCol];
 
         if (!targetPiece) {
-          // Empty square - valid move
           moves.push({ row: currentRow, col: currentCol });
         } else {
           // Piece found - can capture if enemy, then stop
@@ -517,7 +493,6 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Generate all possible knight moves
   function generateKnightMoves(position) {
     const moves = [];
     const { row, col } = position;
@@ -545,7 +520,6 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Generate all possible bishop moves
   function generateBishopMoves(position, board) {
     const moves = [];
     const { row, col } = position;
@@ -590,7 +564,6 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Generate all possible queen moves (combination of rook and bishop)
   function generateQueenMoves(position, board) {
     const rookMoves = generateRookMoves(position, board);
     const bishopMoves = generateBishopMoves(position, board);
@@ -598,7 +571,6 @@ const ChessBoard = () => {
     return [...rookMoves, ...bishopMoves];
   }
 
-  // Generate all possible king moves
   function generateKingMoves(piece, position, board) {
     const moves = [];
     const { row, col } = position;
@@ -635,7 +607,6 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Generate castling moves (you'll need to adapt this to use your existing castling logic)
   function generateCastlingMoves(color, position, board) {
     const moves = [];
     const { row, col } = position;
@@ -659,7 +630,6 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Main function to generate all possible moves for a piece
   function generatePossibleMoves(piece, position, board) {
     const moves = [];
 
@@ -687,7 +657,6 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Function to get all legal moves for a piece (filters out moves that leave king in check)
   function getLegalMovesForPiece(pieceData, board) {
     const { piece, position } = pieceData;
     const moves = [];
@@ -710,9 +679,7 @@ const ChessBoard = () => {
     return moves;
   }
 
-  // Check if a move is legal (doesn't leave own king in check)
   function isLegalMoveForAI(from, to, board) {
-    // First check if target square has own piece
     const movingPiece = board[from.row][from.col];
     const targetPiece = board[to.row][to.col];
 
@@ -723,11 +690,10 @@ const ChessBoard = () => {
         targetPiece === targetPiece.toLowerCase() ? "black" : "white";
 
       if (movingColor === targetColor) {
-        return false; // Can't capture own piece
+        return false; 
       }
     }
 
-    // Make temporary move
     const tempBoard = board.map((row) => [...row]);
     tempBoard[from.row][from.col] = null;
     tempBoard[to.row][to.col] = movingPiece;
@@ -739,7 +705,6 @@ const ChessBoard = () => {
     return !isKingInCheck(pieceColor, tempBoard);
   }
 
-  // Main function to get all legal moves for a color
   function getAllLegalMoves(color, board) {
     const moves = [];
     const pieces = getAllPieces(color, board);
@@ -877,15 +842,12 @@ const ChessBoard = () => {
     const row = color === "white" ? 7 : 0;
     const king = color === "white" ? "K" : "k";
 
-    // Check if king or relevant rook has moved
     if (rights.kingMoved) return false;
     if (side === "king" && rights.kingSideRookMoved) return false;
     if (side === "queen" && rights.queenSideRookMoved) return false;
 
-    // Check if king is currently in check
     if (isKingInCheck(color, board)) return false;
 
-    // Check if pieces are in correct positions
     if (board[row][4] !== king) return false;
 
     if (side === "king") {
@@ -958,7 +920,6 @@ const ChessBoard = () => {
       return newBoard;
     });
 
-    // Mark that castling has occurred
     setCastlingRights((prev) => ({
       ...prev,
       [color]: { ...prev[color], kingMoved: true },
@@ -1008,7 +969,6 @@ const ChessBoard = () => {
     const movingPieceColor =
       movingPiece === movingPiece.toLowerCase() ? "black" : "white";
 
-    // Check for castling
     if (movingPiece.toLowerCase() === "k") {
       const colDiff = to.col - from.col;
       if (Math.abs(colDiff) === 2) {
@@ -1191,7 +1151,6 @@ const ChessBoard = () => {
     const rowDiff = Math.abs(to.row - from.row);
     const colDiff = Math.abs(to.col - from.col);
 
-    // Normal king move (one square in any direction)
     if (rowDiff <= 1 && colDiff <= 1) {
       return true;
     }
@@ -1473,7 +1432,6 @@ const ChessBoard = () => {
           activePiece = null;
           originalPosition = { row: -1, col: -1 };
 
-          // Show promotion modal
           handlePawnPromotion(targetSquare, movingPieceColor);
 
           playDrop();
