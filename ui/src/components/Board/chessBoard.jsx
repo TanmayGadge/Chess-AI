@@ -46,6 +46,26 @@ const ChessBoard = () => {
     isAlphaBeta,
   } = useBoard();
 
+
+  // Helper to convert UCI string (e.g., "e2e4") to board coordinates
+const uciToCoords = (uci) => {
+  const fileMap = { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7 };
+  
+  const from = {
+    col: fileMap[uci[0]],
+    row: 8 - parseInt(uci[1])
+  };
+  const to = {
+    col: fileMap[uci[2]],
+    row: 8 - parseInt(uci[3])
+  };
+  
+  // Handle promotion (e.g., "a7a8q")
+  const promotion = uci.length === 5 ? uci[4] : null;
+
+  return { from, to, promotion };
+};
+
   //An attempt at making it multiplayer
   socket.onopen = () => {
     // alert("Connected to the server");
@@ -91,26 +111,78 @@ const ChessBoard = () => {
     numberOfMoves.current += 1;
   }, [boardState]);
 
+  // useEffect(() => {
+  //   if (currentPlayer === "black" && isAIGame) {
+  //     const timeoutId = setTimeout(() => {
+  //       const aiMove = getAIMove(boardState, depth);
+
+  //       if (aiMove) {
+  //         updateBoardState(aiMove.from, aiMove.to);
+  //         setCurrentPlayer("white");
+  //       } else {
+  //         console.log("AI has no legal moves - game over");
+  //       }
+  //       if (isCheckmate(currentPlayer, boardState)) {
+  //         setGameState("checkmate");
+  //         console.log("Checkmate");
+  //       }
+  //     }, 50);
+
+  //     return ()=> {clearTimeout(timeoutId)};
+  //   }
+  // }, [boardState]);
+
   useEffect(() => {
     if (currentPlayer === "black" && isAIGame) {
-      const timeoutId = setTimeout(() => {
-        const aiMove = getAIMove(boardState, depth);
+      const fetchAiMove = async () => {
+        try {
+          // Construct a valid FEN string for the backend
+          // python-chess requires active color; since AI is black, we append " b - - 0 1"
+          const currentFen = arrayToFEN(boardState) + " b - - 0 1";
 
-        if (aiMove) {
-          updateBoardState(aiMove.from, aiMove.to);
-          setCurrentPlayer("white");
-        } else {
-          console.log("AI has no legal moves - game over");
-        }
-        if (isCheckmate(currentPlayer, boardState)) {
-          setGameState("checkmate");
-          console.log("Checkmate");
-        }
-      }, 50);
+          const response = await fetch("http://localhost:8000/predict", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              fen: currentFen,
+              depth: depth,
+            }),
+          });
 
-      return ()=> {clearTimeout(timeoutId)};
+          const data = await response.json();
+
+          if (data.move) {
+            const { from, to, promotion } = uciToCoords(data.move);
+            
+            // If there is a promotion, AI (black) promotes to lowercase 'q', 'r', etc.
+            updateBoardState(from, to, promotion);
+            
+            setCurrentPlayer("white");
+            playDrop();
+            
+            // Check for game over conditions after move
+            setTimeout(() => {
+               if (isCheckmate("white", boardState)) {
+                 setGameState("checkmate");
+               }
+            }, 100);
+          } else {
+             console.log("AI returned no move (Game Over or Error)");
+          }
+        } catch (error) {
+          console.error("Error fetching AI move:", error);
+        }
+      };
+
+      // Small delay to allow UI to render before AI "thinks"
+      const timer = setTimeout(fetchAiMove, 500);
+      return () => clearTimeout(timer);
     }
-  }, [boardState]);
+  }, [boardState, currentPlayer, isAIGame, depth]);
+
+
 
   function minimax(board, depth, maximizingPlayer) {
     if (depth === 0 || isGameOver(board)) {
@@ -227,7 +299,6 @@ const ChessBoard = () => {
 
       const newBoard = makeMove(board, move);
 
-      
       let moveValue;
       if (isAlphaBeta) {
         moveValue = minimaxAlphaBeta(newBoard, depth - 1, !isMaximizing);
@@ -241,7 +312,6 @@ const ChessBoard = () => {
         },${move.from.col} -> ${move.to.row},${move.to.col} = ${moveValue}`
       );
 
-      
       if (isMaximizing) {
         // White wants maximum value
         if (moveValue > bestValue) {
@@ -265,10 +335,8 @@ const ChessBoard = () => {
   }
 
   function makeMove(board, move) {
-    
     const newBoard = board.map((row) => [...row]);
 
-  
     newBoard[move.from.row][move.from.col] = null;
 
     newBoard[move.to.row][move.to.col] = move.piece;
@@ -282,12 +350,12 @@ const ChessBoard = () => {
       const rook = isWhite ? "R" : "r";
 
       if (move.to.col === 6) {
-        // Kingside castling 
-        newBoard[row][7] = null; 
-        newBoard[row][5] = rook; 
+        // Kingside castling
+        newBoard[row][7] = null;
+        newBoard[row][5] = rook;
       } else if (move.to.col === 2) {
-        // Queenside castling 
-        newBoard[row][0] = null; 
+        // Queenside castling
+        newBoard[row][0] = null;
         newBoard[row][3] = rook;
       }
     }
@@ -690,7 +758,7 @@ const ChessBoard = () => {
         targetPiece === targetPiece.toLowerCase() ? "black" : "white";
 
       if (movingColor === targetColor) {
-        return false; 
+        return false;
       }
     }
 
