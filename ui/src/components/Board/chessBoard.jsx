@@ -8,8 +8,6 @@ import { useBoard } from "../../context/BoardContext";
 import arrayToFEN from "../../hooks/useBoard";
 import useFEN from "../../hooks/useFEN";
 
-import evaluateBoard from "../../ai/evaluateBoard";
-
 const socket = new WebSocket("ws://localhost:8080");
 
 const ChessBoard = () => {
@@ -44,28 +42,27 @@ const ChessBoard = () => {
     isAIGame,
     depth,
     isAlphaBeta,
-    setWinner
+    setWinner,
   } = useBoard();
 
-
   // Helper to convert UCI string (e.g., "e2e4") to board coordinates
-const uciToCoords = (uci) => {
-  const fileMap = { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7 };
-  
-  const from = {
-    col: fileMap[uci[0]],
-    row: 8 - parseInt(uci[1])
-  };
-  const to = {
-    col: fileMap[uci[2]],
-    row: 8 - parseInt(uci[3])
-  };
-  
-  // Handle promotion (e.g., "a7a8q")
-  const promotion = uci.length === 5 ? uci[4] : null;
+  const uciToCoords = (uci) => {
+    const fileMap = { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6, h: 7 };
 
-  return { from, to, promotion };
-};
+    const from = {
+      col: fileMap[uci[0]],
+      row: 8 - parseInt(uci[1]),
+    };
+    const to = {
+      col: fileMap[uci[2]],
+      row: 8 - parseInt(uci[3]),
+    };
+
+    // Handle promotion (e.g., "a7a8q")
+    const promotion = uci.length === 5 ? uci[4] : null;
+
+    return { from, to, promotion };
+  };
 
   //An attempt at making it multiplayer
   socket.onopen = () => {
@@ -135,26 +132,25 @@ const uciToCoords = (uci) => {
 
           if (data.move) {
             const { from, to, promotion } = uciToCoords(data.move);
-            
+
             // If there is a promotion, AI (black) promotes to lowercase 'q', 'r', etc.
             updateBoardState(from, to, promotion);
-            
+
             setCurrentPlayer("white");
             playDrop();
-            
+
             // Check for game over conditions after move
             setTimeout(() => {
-               if (isCheckmate("white", boardState)) {
-                 setGameState("checkmate");
-                 setWinner('black')
-               }
-               else if (isCheckmate('black', boardState)){
+              if (isCheckmate("white", boardState)) {
                 setGameState("checkmate");
-                setWinner('white')
-               }
+                setWinner("black");
+              } else if (isCheckmate("black", boardState)) {
+                setGameState("checkmate");
+                setWinner("white");
+              }
             }, 100);
           } else {
-             console.log("AI returned no move (Game Over or Error)");
+            console.log("AI returned no move (Game Over or Error)");
           }
         } catch (error) {
           console.error("Error fetching AI move:", error);
@@ -166,10 +162,6 @@ const uciToCoords = (uci) => {
       return () => clearTimeout(timer);
     }
   }, [boardState, currentPlayer, isAIGame, depth]);
-
-
-
-
 
   function isPawnPromotionMove(move) {
     if (move.piece.toLowerCase() !== "p") return false;
@@ -471,7 +463,7 @@ const uciToCoords = (uci) => {
     const castlingMoves = generateCastlingMoves(
       isWhite ? "white" : "black",
       position,
-      board
+      board,
     );
     moves.push(...castlingMoves);
 
@@ -959,7 +951,7 @@ const uciToCoords = (uci) => {
                 canAttacking = isValidRookMove(
                   elementPosition,
                   kingPosition,
-                  board
+                  board,
                 );
                 break;
               case "n":
@@ -969,14 +961,14 @@ const uciToCoords = (uci) => {
                 canAttacking = isValidBishopMove(
                   elementPosition,
                   kingPosition,
-                  board
+                  board,
                 );
                 break;
               case "q":
                 canAttacking = isValidQueenMove(
                   elementPosition,
                   kingPosition,
-                  board
+                  board,
                 );
                 break;
               case "k":
@@ -986,7 +978,7 @@ const uciToCoords = (uci) => {
                 canAttacking = isValidPawnAttack(
                   elementPosition,
                   kingPosition,
-                  element
+                  element,
                 );
                 break;
             }
@@ -1407,32 +1399,64 @@ const uciToCoords = (uci) => {
           image={pieceName && `/${pieceName}.svg`}
           row={rowIndex}
           col={pieceIndex}
-        />
+        />,
       );
       key++;
     });
   });
 
+  const rowLabels = [8, 7, 6, 5, 4, 3, 2, 1];
+  const colLabels = ["a", "b", "c", "d", "e", "f", "g", "h"];
+
   return (
     <>
-      <div
-        className="mx-auto w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] p-4"
-        ref={chessBoardRef}
-        onMouseDown={(e) => {
-          grabPiece(e);
-        }}
-        onMouseMove={(e) => {
-          movePiece(e);
-        }}
-        onMouseUp={(e) => {
-          dropPiece(e);
-        }}
-      >
-        {chessBoard}
+      <div className="w-fit mx-auto flex p-4">
+        <div className=" w-8 grid ">
+          {rowLabels.map((label, index) => {
+            return (
+              <div
+                className=" flex items-center justify-center text-white"
+                key={index}
+              >
+                {label}
+              </div>
+            );
+          })}
+        </div>
+
+        <div
+          className="mx-auto w-[100vh] h-screen grid grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] "
+          ref={chessBoardRef}
+          onMouseDown={(e) => {
+            grabPiece(e);
+          }}
+          onMouseMove={(e) => {
+            movePiece(e);
+          }}
+          onMouseUp={(e) => {
+            dropPiece(e);
+          }}
+        >
+          {chessBoard}
+        </div>
+        <PromotionModal />
       </div>
-      <PromotionModal />
+      <div className="w-[100vh] mx-auto">
+        <div className="grid grid-flow-col ml-10 gap-10">
+          {colLabels.map((label, index) => {
+            return (
+              <div
+                className=" flex items-center justify-center text-white"
+                key={index}
+              >
+                {label}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </>
   );
 };
 
-export default ChessBoard;
+export default ChessBoard;  
