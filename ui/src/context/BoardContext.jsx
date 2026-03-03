@@ -18,10 +18,11 @@ export const BoardProvider = ({ children }) => {
   const [promotionColor, setPromotionColor] = useState(null);
   const [pendingPlayerSwitch, setPendingPlayerSwitch] = useState(false);
   const [moveHistory, setMoveHistory] = useState([]);
-  const [gameState, setGameState] = useState(null);
+  const [gameState, setGameState] = useState('playing');
   const [isAIGame, setIsAIGame] = useState(true);
-  const [depth, setDepth] = useState(6);
+  const [depth, setDepth] = useState(3);
   const [isAlphaBeta, setIsAlphaBeta] = useState(true);
+  const [winner, setWinner] = useState(null);
 
   const numberOfMoves = useRef(0);
 
@@ -69,6 +70,7 @@ export const BoardProvider = ({ children }) => {
   return (
     <BoardContext.Provider
       value={{
+        startingFEN,
         boardState,
         setBoardState,
         prevBoardState,
@@ -96,7 +98,9 @@ export const BoardProvider = ({ children }) => {
         depth,
         setDepth,
         isAlphaBeta,
-        setIsAlphaBeta
+        setIsAlphaBeta,
+        winner,
+        setWinner
       }}
     >
       {children}

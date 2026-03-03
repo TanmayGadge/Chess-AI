@@ -1,34 +1,31 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 import chess
 import math
+import time
 
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-origins = [
-    "http://localhost",
-    "http://localhost:8000",
-    "http://localhost:5173",
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,         # Allows specified origins
-    allow_credentials=True,        # Allows cookies/authorization headers to be included in requests
-    allow_methods=["*"],           # Allows all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],           # Allows all headers
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (POST, GET, OPTIONS, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 
-# --- 1. Ported Evaluation Logic (from evaluateBoard.js) ---
+# Global counter to track "thinking" effort
+nodes_visited = 0
+
+# --- 1. Evaluation Logic (Same as before) ---
 
 PIECE_VALUES = {
     'p': 100, 'n': 320, 'b': 330, 'r': 500, 'q': 900, 'k': 20000
 }
 
-# Tables ported from your JS code
 PIECE_SQUARE_TABLES = {
     'p': [
         [ 0,  0,  0,  0,  0,  0,  0,  0],
@@ -111,36 +108,26 @@ def is_endgame(board: chess.Board):
     return queens == 0 or (queens == 2 and minor_pieces <= 2)
 
 def evaluate_board(board: chess.Board):
-    """
-    Python implementation of your JavaScript evaluateBoard function.
-    Adapts python-chess board representation to the logic used in your 2D array tables.
-    """
     material_score = 0
     positional_score = 0
     endgame = is_endgame(board)
     
-    # Iterate over all 64 squares
     for square in chess.SQUARES:
         piece = board.piece_at(square)
         if not piece:
             continue
             
-        piece_type_symbol = piece.symbol().lower() # 'p', 'n', etc.
+        piece_type_symbol = piece.symbol().lower()
         is_white = piece.color == chess.WHITE
         
-        # 1. Material Score
+        # Material Score
         value = PIECE_VALUES.get(piece_type_symbol, 0)
         material_score += value if is_white else -value
         
-        # 2. Positional Score
-        # Convert chess.SQUARES (0-63, starts A1) to 2D array indices (row 0-7, col 0-7)
-        # In JS: row 0 is Rank 8, col 0 is File A.
-        # python-chess: rank_index 0 is Rank 1.
-        rank = chess.square_rank(square) # 0-7 where 0 is Rank 1
-        file = chess.square_file(square) # 0-7 where 0 is File A
+        # Positional Score
+        rank = chess.square_rank(square)
+        file = chess.square_file(square)
         
-        # In your JS tables, row 0 is the top (Rank 8). 
-        # So we invert the rank index to match the table's "visual" layout.
         table_row = 7 - rank 
         table_col = file
         
@@ -152,19 +139,19 @@ def evaluate_board(board: chess.Board):
             
         if table:
             if is_white:
-                # White uses table as-is
                 positional_score += table[table_row][table_col]
             else:
-                # Black uses flipped table (flip vertically)
-                # If table_row is 0 (Rank 8), flipped is 7 (Rank 1)
                 flipped_row = 7 - table_row
                 positional_score -= table[flipped_row][table_col]
 
     return material_score + positional_score
 
-# --- 2. Minimax Logic ---
+# --- 2. Minimax Logic with Logging ---
 
 def minimax(board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool):
+    global nodes_visited
+    nodes_visited += 1
+    
     if depth == 0 or board.is_game_over():
         return evaluate_board(board)
 
@@ -192,6 +179,9 @@ def minimax(board: chess.Board, depth: int, alpha: float, beta: float, maximizin
         return min_eval
 
 def get_best_move(board: chess.Board, depth: int):
+    global nodes_visited
+    nodes_visited = 0  # Reset counter
+    
     best_move = None
     max_eval = -math.inf
     min_eval = math.inf
@@ -200,26 +190,42 @@ def get_best_move(board: chess.Board, depth: int):
     
     is_maximizing = board.turn == chess.WHITE
     
-    # Sort moves for better pruning (optional optimization: captures first)
-    moves = list(board.legal_moves)
+    print(f"\n[{'WHITE' if is_maximizing else 'BLACK'}] Thinking at depth {depth}...")
+    start_time = time.time()
     
-    # Root level call
-    for move in moves:
+    moves = list(board.legal_moves)
+    total_moves = len(moves)
+    
+    for i, move in enumerate(moves):
         board.push(move)
-        # After we move, it is the opponent's turn, so we flip the maximizing flag
+        
+        # Log which move we are checking
+        print(f"  > Checking {move.uci()} ({i+1}/{total_moves})... ", end="", flush=True)
+        
+        # Opponent's turn after we move
         eval = minimax(board, depth - 1, alpha, beta, not is_maximizing)
         board.pop()
+        
+        print(f"Score: {eval}")
         
         if is_maximizing:
             if eval > max_eval:
                 max_eval = eval
                 best_move = move
+                print(f"    * New Best Move for White: {move.uci()} (Score: {eval})")
             alpha = max(alpha, eval)
         else:
             if eval < min_eval:
                 min_eval = eval
                 best_move = move
+                print(f"    * New Best Move for Black: {move.uci()} (Score: {eval})")
             beta = min(beta, eval)
+            
+    end_time = time.time()
+    duration = end_time - start_time
+    
+    print(f"Done! Evaluated {nodes_visited} positions in {duration:.2f}s.")
+    print(f"Chosen Move: {best_move.uci()} with final score: {max_eval if is_maximizing else min_eval}\n")
             
     return best_move
 
@@ -239,6 +245,7 @@ async def predict_move(request: MoveRequest):
     if board.is_game_over():
         return {"move": None, "game_over": True}
 
+    # Call the instrumented get_best_move
     best_move = get_best_move(board, request.depth)
     
     return {
@@ -248,4 +255,5 @@ async def predict_move(request: MoveRequest):
 
 if __name__ == "__main__":
     import uvicorn
+    # Log level 'info' will show HTTP requests, our print statements show logic
     uvicorn.run(app, host="0.0.0.0", port=8000)

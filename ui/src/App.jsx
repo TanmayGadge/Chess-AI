@@ -10,6 +10,9 @@ import AiButton from "./components/Button/AiButton";
 import DepthButton from "./components/Button/DepthButton";
 import AlphaBetaButton from "./components/Button/AlphaBetaButton";
 
+import GameOver from "./components/GameOver/GameOver";
+import GameOverButton from "./components/Button/GameOverButton";
+
 function App() {
   return (
     <div className="bg-[#242424] ">
@@ -21,8 +24,11 @@ function App() {
         <AiButton />
         <DepthButton/>
         <AlphaBetaButton/>
+        <GameOverButton/>
         {/* <ConnectButton/> */}
       </div>
+
+      <GameOver/>
     </div>
   );
 }

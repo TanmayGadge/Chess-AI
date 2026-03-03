@@ -44,6 +44,7 @@ const ChessBoard = () => {
     isAIGame,
     depth,
     isAlphaBeta,
+    setWinner
   } = useBoard();
 
 
@@ -111,27 +112,6 @@ const uciToCoords = (uci) => {
     numberOfMoves.current += 1;
   }, [boardState]);
 
-  // useEffect(() => {
-  //   if (currentPlayer === "black" && isAIGame) {
-  //     const timeoutId = setTimeout(() => {
-  //       const aiMove = getAIMove(boardState, depth);
-
-  //       if (aiMove) {
-  //         updateBoardState(aiMove.from, aiMove.to);
-  //         setCurrentPlayer("white");
-  //       } else {
-  //         console.log("AI has no legal moves - game over");
-  //       }
-  //       if (isCheckmate(currentPlayer, boardState)) {
-  //         setGameState("checkmate");
-  //         console.log("Checkmate");
-  //       }
-  //     }, 50);
-
-  //     return ()=> {clearTimeout(timeoutId)};
-  //   }
-  // }, [boardState]);
-
   useEffect(() => {
     if (currentPlayer === "black" && isAIGame) {
       const fetchAiMove = async () => {
@@ -166,6 +146,11 @@ const uciToCoords = (uci) => {
             setTimeout(() => {
                if (isCheckmate("white", boardState)) {
                  setGameState("checkmate");
+                 setWinner('black')
+               }
+               else if (isCheckmate('black', boardState)){
+                setGameState("checkmate");
+                setWinner('white')
                }
             }, 100);
           } else {
@@ -184,189 +169,7 @@ const uciToCoords = (uci) => {
 
 
 
-  function minimax(board, depth, maximizingPlayer) {
-    if (depth === 0 || isGameOver(board)) {
-      return evaluateBoard(board);
-    }
 
-    if (maximizingPlayer) {
-      let maxEval = -Infinity;
-
-      const whiteMoves = getAllLegalMoves("white", board);
-
-      for (const move of whiteMoves) {
-        const newBoard = makeMove(board, move);
-
-        const evaluation = minimax(newBoard, depth - 1, false);
-
-        maxEval = Math.max(maxEval, evaluation);
-      }
-
-      return maxEval;
-    } else {
-      let minEval = +Infinity;
-
-      const blackMoves = getAllLegalMoves("black", board);
-
-      for (const move of blackMoves) {
-        const newBoard = makeMove(board, move);
-
-        const evaluation = minimax(newBoard, depth - 1, true);
-
-        minEval = Math.min(minEval, evaluation);
-      }
-
-      return minEval;
-    }
-  }
-
-  function minimaxAlphaBeta(
-    board,
-    depth,
-    maximizingPlayer,
-    alpha = -Infinity,
-    beta = +Infinity
-  ) {
-    if (depth === 0 || isGameOver(board)) {
-      return evaluateBoard(board);
-    }
-
-    if (maximizingPlayer) {
-      let maxEval = -Infinity;
-
-      const whiteMoves = getAllLegalMoves("white", board);
-
-      for (const move of whiteMoves) {
-        const newBoard = makeMove(board, move);
-        const evaluation = minimaxAlphaBeta(
-          newBoard,
-          depth - 1,
-          false,
-          alpha,
-          beta
-        );
-        maxEval = Math.max(maxEval, evaluation);
-        alpha = Math.max(alpha, evaluation);
-
-        if (beta <= alpha) {
-          break;
-        }
-      }
-
-      return maxEval;
-    } else {
-      let minEval = +Infinity;
-      const blackMoves = getAllLegalMoves("black", board);
-
-      for (const move of blackMoves) {
-        const newBoard = makeMove(board, move);
-        const evaluation = minimaxAlphaBeta(
-          newBoard,
-          depth - 1,
-          true,
-          alpha,
-          beta
-        );
-        minEval = Math.min(minEval, evaluation);
-        beta = Math.min(beta, evaluation);
-        if (beta <= alpha) {
-          break;
-        }
-      }
-
-      return minEval;
-    }
-  }
-
-  function getBestMove(board, color, depth = 2) {
-    const isMaximizing = color === "white";
-    let bestMove = null;
-    let bestValue = isMaximizing ? -Infinity : +Infinity;
-
-    const possibleMoves = getAllLegalMoves(color, board);
-
-    // checkmate or stalemate
-    if (possibleMoves.length === 0) {
-      return null;
-    }
-
-    console.log(
-      `AI evaluating ${possibleMoves.length} possible moves at depth ${depth}`
-    );
-
-    for (let i = 0; i < possibleMoves.length; i++) {
-      const move = possibleMoves[i];
-
-      const newBoard = makeMove(board, move);
-
-      let moveValue;
-      if (isAlphaBeta) {
-        moveValue = minimaxAlphaBeta(newBoard, depth - 1, !isMaximizing);
-      } else {
-        moveValue = minimax(newBoard, depth - 1, !isMaximizing);
-      }
-
-      console.log(
-        `Move ${i + 1}/${possibleMoves.length}: ${move.piece} ${
-          move.from.row
-        },${move.from.col} -> ${move.to.row},${move.to.col} = ${moveValue}`
-      );
-
-      if (isMaximizing) {
-        // White wants maximum value
-        if (moveValue > bestValue) {
-          bestValue = moveValue;
-          bestMove = move;
-        }
-      } else {
-        // Black wants minimum value
-        if (moveValue < bestValue) {
-          bestValue = moveValue;
-          bestMove = move;
-        }
-      }
-    }
-
-    console.log(
-      `Best move found: ${bestMove.piece} ${bestMove.from.row},${bestMove.from.col} -> ${bestMove.to.row},${bestMove.to.col} with value ${bestValue}`
-    );
-
-    return bestMove;
-  }
-
-  function makeMove(board, move) {
-    const newBoard = board.map((row) => [...row]);
-
-    newBoard[move.from.row][move.from.col] = null;
-
-    newBoard[move.to.row][move.to.col] = move.piece;
-
-    if (
-      move.piece.toLowerCase() === "k" &&
-      Math.abs(move.to.col - move.from.col) === 2
-    ) {
-      const isWhite = move.piece === move.piece.toUpperCase();
-      const row = isWhite ? 7 : 0;
-      const rook = isWhite ? "R" : "r";
-
-      if (move.to.col === 6) {
-        // Kingside castling
-        newBoard[row][7] = null;
-        newBoard[row][5] = rook;
-      } else if (move.to.col === 2) {
-        // Queenside castling
-        newBoard[row][0] = null;
-        newBoard[row][3] = rook;
-      }
-    }
-
-    if (isPawnPromotionMove(move)) {
-      const color = move.piece === move.piece.toUpperCase() ? "white" : "black";
-      newBoard[move.to.row][move.to.col] = color === "white" ? "Q" : "q";
-    }
-
-    return newBoard;
-  }
 
   function isPawnPromotionMove(move) {
     if (move.piece.toLowerCase() !== "p") return false;
